@@ -9,7 +9,7 @@ const MINE_DAMAGE = Number(process.env.MINE_DAMAGE || 1);
 const app = express();
 
 // Em produção, o Vite gera em dist/public (ver vite.config.ts)
-const staticDir = path.join(__dirname, "public");
+const staticDir = path.join(__dirname, "./");
 app.use(express.static(staticDir));
 
 // SPA fallback
