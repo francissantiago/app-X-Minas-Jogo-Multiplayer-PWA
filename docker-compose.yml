@@ -1,0 +1,13 @@
+services:
+  x-minas:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Ajuste opcional:
+      # - PORT=3000
+      # - MINE_DAMAGE=1
+      PORT: 3000
+      MINE_DAMAGE: 1
+    restart: unless-stopped
+
