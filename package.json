@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "concurrently -k \"tsx watch server.ts\" \"vite --host 0.0.0.0 --port 5173\"",
     "build": "vite build && tsc -p tsconfig.server.json",
-    "build:pages": "vite build && node -e \"const fs=require('node:fs'); fs.copyFileSync('dist/public/index.html','dist/public/404.html'); console.log('Gerado dist/public/404.html (fallback SPA).');\"",
+    "build:pages": "vite build && node -e \"const fs=require('node:fs'); fs.copyFileSync('dist/index.html','dist/404.html'); console.log('Gerado dist/404.html (fallback SPA).');\"",
     "start": "node dist/server.js"
   },
   "dependencies": {
