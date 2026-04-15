@@ -1,8 +1,5 @@
 # X & Minas — Jogo Multiplayer (PWA)
 
-## por Francis Santiago
-
-
 Jogo de 10×10 (colunas **A–J** e linhas **1–10**) com 2 jogadores, **offline**, **LAN** e **online**.  
 Objetivo: **encontrar o “X” de cada linha**, em ordem, até encontrar o último “X” na **linha 10**.
 
@@ -46,6 +43,15 @@ Os jogadores acessam a mesma URL pública e entram no mesmo código de sala.
 
 **Importante (pareamento):** um jogador deve **criar a sala** e compartilhar o **código**; o outro deve **entrar com o mesmo código**.  
 Se preferir, digite um código (ex.: `SALA01`) e use **“Criar com código”** no primeiro dispositivo, e **“Entrar na sala”** no segundo.
+
+## GitHub Pages (CI/CD)
+Este repositório possui um workflow de **GitHub Actions** que publica o **frontend** no **GitHub Pages** automaticamente.
+
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Comando de build do Pages: `npm run build:pages`
+
+> Observação: o GitHub Pages hospeda apenas arquivos estáticos.  
+> O modo **Offline** funciona normalmente, mas o modo **Online/LAN** (WebSocket) precisa de um servidor Node.js rodando em outro lugar (VPS, Render, Fly.io, etc.).
 
 ## Modo offline (sem servidor)
 Ao abrir o jogo, escolha **“Jogar offline (local)”**.  

@@ -6,8 +6,9 @@
   "type": "commonjs",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "concurrently -k \"tsx watch server.ts\" \"vite --host 0.0.0.0\"",
+    "dev": "concurrently -k \"tsx watch server.ts\" \"vite --host 0.0.0.0 --port 5173\"",
     "build": "vite build && tsc -p tsconfig.server.json",
+    "build:pages": "vite build && node scripts/copy-404.mjs",
     "start": "node dist/server.js"
   },
   "dependencies": {
