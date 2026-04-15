@@ -6,7 +6,7 @@ export default defineConfig({
   base: process.env.VITE_BASE || "/",
   plugins: [tailwindcss()],
   build: {
-    outDir: "dist/public",
+    outDir: "dist",
     emptyOutDir: true
   },
   server: {
