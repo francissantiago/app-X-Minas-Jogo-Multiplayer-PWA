@@ -33,7 +33,8 @@ function toggleTheme() {
 // PWA: service worker + install
 // ---------------------------
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+  navigator.serviceWorker.register(swUrl).catch(() => {});
 }
 
 // Tipagem mínima (nem todo TS lib inclui isso)
@@ -118,6 +119,7 @@ const appState: {
   serverState: ServerState | null;
   playerId: string | null;
   name: string;
+  name2: string;
   roomCodeInput: string;
   mineDamage: number;
   lastExplosion: { row: number; col: string; slot: number; at: number } | null;
@@ -131,6 +133,7 @@ const appState: {
   serverState: null,
   playerId: null,
   name: "",
+  name2: "",
   roomCodeInput: "",
   mineDamage: 1,
   lastExplosion: null
@@ -710,6 +713,14 @@ function renderMenu() {
       appState.name = (e.target as HTMLInputElement).value;
     }
   });
+  const name2Input = el("input", {
+    class: "input",
+    placeholder: "Nome do Jogador 2 (offline)",
+    value: appState.name2,
+    onInput: (e: Event) => {
+      appState.name2 = (e.target as HTMLInputElement).value;
+    }
+  });
 
   const offlineBtn = el("button", { class: "btn btn-primary", onClick: startOffline }, ["Jogar offline (local)"]);
   const onlineBtn = el(
@@ -734,7 +745,13 @@ function renderMenu() {
       card("Modo de jogo", [
         el("div", { class: "row" }, [offlineBtn, onlineBtn]),
         el("div", { class: "divider" }),
-        el("div", {}, [el("label", { class: "muted small", text: "Nome (usado no online e no offline):" }), nameInput]),
+        el("div", {}, [
+          el("label", { class: "muted small", text: "Nome (usado no online e no offline):" }),
+          nameInput,
+          el("div", { class: "divider" }),
+          el("label", { class: "muted small", text: "Nome do Jogador 2 (apenas offline/local):" }),
+          name2Input
+        ]),
         el("div", { class: "divider" }),
         expl
       ])
@@ -755,7 +772,8 @@ function startOffline() {
   appState.offline = createOfflineGame();
   const n = (appState.name || "").trim();
   if (n) appState.offline.players[0].name = n;
-  appState.offline.players[1].name = "Jogador 2";
+  const n2 = (appState.name2 || "").trim();
+  appState.offline.players[1].name = n2 || "Jogador 2";
   appState.screen = "offline_setup";
   setLog("Offline: Jogador 1 configura as armadilhas do Jogador 2.");
 }
@@ -893,7 +911,8 @@ function renderOfflinePlay() {
         appState.offline = createOfflineGame();
         const n = (appState.name || "").trim();
         if (n) appState.offline.players[0].name = n;
-        appState.offline.players[1].name = "Jogador 2";
+        const n2 = (appState.name2 || "").trim();
+        appState.offline.players[1].name = n2 || "Jogador 2";
         appState.screen = "offline_setup";
         setLog("Novo jogo offline: Jogador 1 configura as armadilhas do Jogador 2.");
       }
