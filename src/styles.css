@@ -32,7 +32,7 @@
 
   body {
     font-family: var(--font-sans);
-    @apply antialiased text-slate-100;
+    @apply antialiased text-slate-100 overflow-x-hidden;
     background: radial-gradient(1200px 700px at 30% 0%, rgb(22 38 74), rgb(2 6 23));
   }
 
@@ -137,13 +137,16 @@
     @apply my-3 h-px bg-white/10;
   }
 
-  .grid {
-    @apply grid items-stretch gap-1.5 select-none;
-    grid-template-columns: 38px repeat(10, minmax(30px, 1fr));
+  /* Tabuleiro estilo "planilha" (100 células) */
+  .board-grid {
+    @apply grid items-stretch gap-1 select-none sm:gap-1.5;
+    grid-template-columns: clamp(28px, 8vw, 38px) repeat(8, minmax(0, 1fr));
   }
 
   .cell {
-    @apply grid h-9 place-items-center rounded-xl border border-white/10 bg-black/20 text-sm font-semibold sm:h-10;
+    @apply grid place-items-center rounded-xl border border-white/10 bg-black/20 text-xs font-semibold sm:text-sm;
+    aspect-ratio: 1 / 1;
+    min-height: 28px;
   }
 
   .cell.header {
@@ -244,7 +247,10 @@
   }
 
   .board-wrap {
-    @apply -mx-3 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4;
+    /* Evita overflow-x no mobile: sem margens negativas; scroll fica somente aqui */
+    @apply w-full overflow-x-auto pb-1;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
   .board-wrap::-webkit-scrollbar {
     height: 10px;
@@ -364,6 +370,7 @@
 /* Overrides para tema claro (mantém o resto do layout igual) */
 .theme-light body {
   @apply text-slate-900;
+  @apply overflow-x-hidden;
   background: radial-gradient(1200px 700px at 30% 0%, rgb(226 232 240), rgb(248 250 252));
 }
 .theme-light .topbar {

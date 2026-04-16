@@ -1,6 +1,9 @@
 import "./styles.css";
 
-const COLS = "ABCDEFGHIJ".split("") as Array<string>;
+// Config do tabuleiro
+const ROWS = 8;
+const MINES_PER_ROW = 3;
+const COLS = "ABCDEFGH".split("") as Array<string>;
 
 // ---------------------------
 // Tema (dark/light)
@@ -207,7 +210,7 @@ function cloneTraps(traps: TrapRow[]): TrapRow[] {
 }
 
 function newEmptyTraps(): TrapRow[] {
-  return Array.from({ length: 10 }, (_, i) => ({ row: i + 1, x: null, mines: [] }));
+  return Array.from({ length: ROWS }, (_, i) => ({ row: i + 1, x: null, mines: [] }));
 }
 
 function randInt(max: number) {
@@ -226,28 +229,28 @@ function pickDistinct<T>(items: T[], count: number): T[] {
 }
 
 function randomTrapsAllRows(): TrapRow[] {
-  // Para cada linha: 1 X + 4 minas (todos distintos)
-  return Array.from({ length: 10 }, (_, i) => {
+  // Para cada linha: 1 X + MINES_PER_ROW minas (todos distintos)
+  return Array.from({ length: ROWS }, (_, i) => {
     const row = i + 1;
-    const picks = pickDistinct(COLS, 5);
+    const picks = pickDistinct(COLS, MINES_PER_ROW + 1);
     const x = picks[0] ?? "A";
-    const mines = picks.slice(1, 5);
+    const mines = picks.slice(1, MINES_PER_ROW + 1);
     return { row, x, mines };
   });
 }
 
 function randomizeDraftInPlace(draft: TrapRow[]) {
   const rnd = randomTrapsAllRows();
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < ROWS; i++) {
     draft[i].x = rnd[i].x;
     draft[i].mines = [...rnd[i].mines];
   }
 }
 
 function randomizeDraftRowInPlace(draft: TrapRow[], row: number) {
-  const picks = pickDistinct(COLS, 5);
+  const picks = pickDistinct(COLS, MINES_PER_ROW + 1);
   const x = picks[0] ?? "A";
-  const mines = picks.slice(1, 5);
+  const mines = picks.slice(1, MINES_PER_ROW + 1);
   const r = draft[row - 1];
   if (!r) return;
   r.x = x;
@@ -255,12 +258,13 @@ function randomizeDraftRowInPlace(draft: TrapRow[], row: number) {
 }
 
 function validateTraps(traps: TrapRow[]): string | null {
-  if (!Array.isArray(traps) || traps.length !== 10) return "É necessário configurar as 10 linhas.";
+  if (!Array.isArray(traps) || traps.length !== ROWS) return `É necessário configurar as ${ROWS} linhas.`;
   for (const r of traps) {
     if (!r.x) return `Faltou definir o X na linha ${r.row}.`;
-    if (!Array.isArray(r.mines) || r.mines.length !== 4) return `Faltou definir 4 minas na linha ${r.row}.`;
+    if (!Array.isArray(r.mines) || r.mines.length !== MINES_PER_ROW)
+      return `Faltou definir ${MINES_PER_ROW} minas na linha ${r.row}.`;
     const s = new Set(r.mines);
-    if (s.size !== 4) return `Minas repetidas na linha ${r.row}.`;
+    if (s.size !== MINES_PER_ROW) return `Minas repetidas na linha ${r.row}.`;
     if (s.has(r.x)) return `O X não pode coincidir com mina na linha ${r.row}.`;
   }
   return null;
@@ -298,15 +302,15 @@ function createOfflineGame(): OfflineGame {
         name: "Jogador 1",
         points: 20,
         currentRow: 1,
-        attemptedByRow: Array.from({ length: 10 }, () => new Set()),
-        mineHitsByRow: Array.from({ length: 10 }, () => new Set())
+        attemptedByRow: Array.from({ length: ROWS }, () => new Set()),
+        mineHitsByRow: Array.from({ length: ROWS }, () => new Set())
       },
       {
         name: "Jogador 2",
         points: 20,
         currentRow: 1,
-        attemptedByRow: Array.from({ length: 10 }, () => new Set()),
-        mineHitsByRow: Array.from({ length: 10 }, () => new Set())
+        attemptedByRow: Array.from({ length: ROWS }, () => new Set()),
+        mineHitsByRow: Array.from({ length: ROWS }, () => new Set())
       }
     ],
     trapsByTargetIndex: { 0: null, 1: null },
@@ -353,7 +357,7 @@ function offlineMove(col: string) {
   const pi = g.currentTurnIndex;
   const p = g.players[pi];
   const row = p.currentRow;
-  if (row < 1 || row > 10) return;
+  if (row < 1 || row > ROWS) return;
 
   const attempted = p.attemptedByRow[row - 1];
   if (attempted.has(col)) return setLog("Você já tentou essa coluna nesta linha.");
@@ -366,7 +370,7 @@ function offlineMove(col: string) {
 
   if (col === rowTrap.x) {
     p.currentRow++;
-    if (p.currentRow === 11) {
+    if (p.currentRow === ROWS + 1) {
       g.phase = "finished";
       g.winnerIndex = pi;
       appState.screen = "offline_end";
@@ -533,7 +537,7 @@ function onlineMove(col: string) {
 // ---------------------------
 function progressList(currentRow: number) {
   const items: Node[] = [];
-  for (let r = 1; r <= 10; r++) {
+  for (let r = 1; r <= ROWS; r++) {
     const status = currentRow > r ? "ok" : currentRow === r ? "warn" : "";
     const label = currentRow > r ? "X encontrado" : currentRow === r ? "Linha atual" : "Pendente";
     items.push(el("div", { class: `tag ${status}`.trim(), text: `${r}: ${label}` }));
@@ -548,7 +552,7 @@ function setupRowEditor(
   onSetX: (col: string) => void
 ) {
   const r = trapsDraft[row - 1];
-  const minesLeft = 4 - r.mines.length;
+  const minesLeft = MINES_PER_ROW - r.mines.length;
   const xSet = !!r.x;
 
   const header = el("div", { class: "row" }, [
@@ -557,7 +561,7 @@ function setupRowEditor(
     pill(`X: ${xSet ? r.x! : "não definido"}`)
   ]);
 
-  const grid = el("div", { class: "grid" }, [
+  const grid = el("div", { class: "board-grid" }, [
     el("div", { class: "cell header", text: "#" }),
     ...COLS.map((c) => el("div", { class: "cell header", text: c }))
   ]);
@@ -660,12 +664,12 @@ function board10x10Combined(opts: {
   onPick?: (col: string) => void;
   explosion?: { row: number; col: string; slot: number } | null;
 }) {
-  const grid = el("div", { class: "grid" }, [
+  const grid = el("div", { class: "board-grid" }, [
     el("div", { class: "cell header", text: "#" }),
     ...COLS.map((c) => el("div", { class: "cell header", text: c }))
   ]);
 
-  for (let row = 1; row <= 10; row++) {
+  for (let row = 1; row <= ROWS; row++) {
     const isActiveRow = opts.activeRow === row;
     grid.appendChild(
       el("div", { class: `cell header ${isActiveRow ? "bg-white/10" : ""}`.trim(), text: String(row) })
@@ -737,7 +741,7 @@ function renderMenu() {
   );
 
   const expl = el("div", { class: "muted small" }, [
-    "Regras assumidas: cada jogador configura, em segredo, 4 minas e 1 X por linha para o oponente. No jogo, em seu turno você escolhe uma célula (coluna) na sua linha atual. Se achar o X, avança; se cair em mina, perde pontos; caso contrário, permanece."
+    `Regras: cada jogador configura, em segredo, ${MINES_PER_ROW} minas e 1 X por linha para o oponente. No jogo, em seu turno você escolhe uma célula (coluna) na sua linha atual. Se achar o X, avança; se cair em mina, perde pontos; caso contrário, permanece.`
   ]);
 
   return el("div", { class: "layout-2" }, [
@@ -758,10 +762,10 @@ function renderMenu() {
     ]),
     el("div", { class: "col" }, [
       card("Como vencer", [
-        el("div", { class: "row" }, [pill("10 colunas (A-J)"), pill("10 linhas (1-10)"), pill("20 pontos")]),
+        el("div", { class: "row" }, [pill(`${COLS.length} colunas (A-${COLS[COLS.length - 1]})`), pill(`${ROWS} linhas (1-${ROWS})`), pill("20 pontos")]),
         el("div", { class: "divider" }),
         el("div", { class: "muted" }, [
-          "Você começa na linha 1. Cada linha tem um único X (avanço) e 4 minas (penalidade). Encontre o X da linha 10 antes do oponente, ou elimine-o zerando os pontos."
+          `Você começa na linha 1. Cada linha tem um único X (avanço) e ${MINES_PER_ROW} minas (penalidade). Encontre o X da linha ${ROWS} antes do oponente, ou elimine-o zerando os pontos.`
         ])
       ])
     ])
@@ -791,7 +795,7 @@ function renderOfflineSetup() {
         render();
       }
     },
-    Array.from({ length: 10 }, (_, i) => el("option", { value: String(i + 1), text: `Linha ${i + 1}` }))
+    Array.from({ length: ROWS }, (_, i) => el("option", { value: String(i + 1), text: `Linha ${i + 1}` }))
   );
   (rowSel as HTMLSelectElement).value = String(g.setupRow);
 
@@ -800,7 +804,8 @@ function renderOfflineSetup() {
     const idx = r.mines.indexOf(col);
     if (idx >= 0) r.mines.splice(idx, 1);
     else {
-      if (r.mines.length >= 4) return setLog(`Já existem 4 minas na linha ${r.row}. Remova uma para trocar.`);
+      if (r.mines.length >= MINES_PER_ROW)
+        return setLog(`Já existem ${MINES_PER_ROW} minas na linha ${r.row}. Remova uma para trocar.`);
       if (r.x === col) return setLog("Essa coluna está marcada como X. Mude o X antes de adicionar mina.");
       r.mines.push(col);
     }
@@ -870,13 +875,13 @@ function renderOfflineSetup() {
     ]),
     el("div", { class: "col" }, [
       card("Checklist do setup", [
-        el("div", { class: "muted small" }, ["Cada linha deve ter exatamente 1 X e 4 minas."]),
+        el("div", { class: "muted small" }, [`Cada linha deve ter exatamente 1 X e ${MINES_PER_ROW} minas.`]),
         el("div", { class: "divider" }),
         ...g.setupDraft.map((r) =>
           el("div", { class: "row" }, [
             pill(`Linha ${r.row}`),
             el("span", { class: `tag ${r.x ? "ok" : "danger"}`.trim(), text: r.x ? `X: ${r.x}` : "X faltando" }),
-            el("span", { class: `tag ${r.mines.length === 4 ? "ok" : "warn"}`.trim(), text: `Minas: ${r.mines.length}/4` })
+            el("span", { class: `tag ${r.mines.length === MINES_PER_ROW ? "ok" : "warn"}`.trim(), text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
           ])
         )
       ])
@@ -942,15 +947,15 @@ function renderOfflinePlay() {
           [
             el("div", { class: "row items-center" }, [
               el("span", { class: `tag ok ${slotText(pi)}`, text: `Jogador da vez: ${p.name}` }),
-              el("span", { class: "tag", text: `Linha atual: ${Math.min(10, p.currentRow)}` })
+              el("span", { class: "tag", text: `Linha atual: ${Math.min(ROWS, p.currentRow)}` })
             ]),
             el("span", { class: "muted small", text: "Clique apenas na sua linha atual" })
           ]
         ),
         el("div", { class: "divider" }),
         el("div", { class: "row" }, [
-          pill(`${g.players[0].name} — pontos: ${g.players[0].points} — linha: ${Math.min(10, g.players[0].currentRow)}`),
-          pill(`${g.players[1].name} — pontos: ${g.players[1].points} — linha: ${Math.min(10, g.players[1].currentRow)}`)
+          pill(`${g.players[0].name} — pontos: ${g.players[0].points} — linha: ${Math.min(ROWS, g.players[0].currentRow)}`),
+          pill(`${g.players[1].name} — pontos: ${g.players[1].points} — linha: ${Math.min(ROWS, g.players[1].currentRow)}`)
         ]),
         el("div", { class: "divider" }),
         el("div", { class: "row items-center" }, [
@@ -1152,7 +1157,7 @@ function renderOnlineSetup() {
         render();
       }
     },
-    Array.from({ length: 10 }, (_, i) => el("option", { value: String(i + 1), text: `Linha ${i + 1}` }))
+    Array.from({ length: ROWS }, (_, i) => el("option", { value: String(i + 1), text: `Linha ${i + 1}` }))
   );
   (rowSel as HTMLSelectElement).value = String(onlineSetup.row);
 
@@ -1187,7 +1192,8 @@ function renderOnlineSetup() {
     const idx = r.mines.indexOf(col);
     if (idx >= 0) r.mines.splice(idx, 1);
     else {
-      if (r.mines.length >= 4) return setLog(`Já existem 4 minas na linha ${r.row}. Remova uma para trocar.`);
+      if (r.mines.length >= MINES_PER_ROW)
+        return setLog(`Já existem ${MINES_PER_ROW} minas na linha ${r.row}. Remova uma para trocar.`);
       if (r.x === col) return setLog("Essa coluna está marcada como X. Mude o X antes de adicionar mina.");
       r.mines.push(col);
     }
@@ -1228,7 +1234,7 @@ function renderOnlineSetup() {
           el("span", { class: "tag", text: `Oponente: ${opp?.name || "aguardando..."}` })
         ]),
         el("div", { class: "divider" }),
-        el("div", { class: "muted" }, ["Configure as armadilhas do seu oponente: 4 minas e 1 X por linha."]),
+        el("div", { class: "muted" }, [`Configure as armadilhas do seu oponente: ${MINES_PER_ROW} minas e 1 X por linha.`]),
         el("div", { class: "divider" }),
         el("div", { class: "row" }, [pill("Escolha a linha:"), rowSel]),
         el("div", { class: "row" }, [randomRowBtn, randomAllBtn]),
@@ -1303,7 +1309,7 @@ function renderOnlinePlay() {
           [
             el("div", { class: "row items-center" }, [
               el("span", { class: `tag ${isYourTurn ? "ok " + slotText(you.slot) : "warn"}`.trim(), text: isYourTurn ? "É a sua vez" : "Aguardando oponente" }),
-              el("span", { class: "tag", text: `Linha atual: ${Math.min(10, you.currentRow)}` })
+              el("span", { class: "tag", text: `Linha atual: ${Math.min(ROWS, you.currentRow)}` })
             ]),
             el("span", { class: "muted small", text: isYourTurn ? "Clique em uma célula na sua linha atual" : "Você não pode jogar agora" })
           ]
@@ -1314,8 +1320,8 @@ function renderOnlinePlay() {
         ]),
         el("div", { class: "divider" }),
         el("div", { class: "row" }, [
-          pill(`${you.name} — pontos: ${you.points} — linha: ${Math.min(10, you.currentRow)}`),
-          pill(`${opp.name} — pontos: ${opp.points} — linha: ${Math.min(10, opp.currentRow)}`)
+          pill(`${you.name} — pontos: ${you.points} — linha: ${Math.min(ROWS, you.currentRow)}`),
+          pill(`${opp.name} — pontos: ${opp.points} — linha: ${Math.min(ROWS, opp.currentRow)}`)
         ]),
         el("div", { class: "divider" }),
         el("div", { class: "row items-center" }, [

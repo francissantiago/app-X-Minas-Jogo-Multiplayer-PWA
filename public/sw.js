@@ -1,4 +1,4 @@
-const CACHE_NAME = "x-minas-v3";
+const CACHE_NAME = "x-minas-v5";
 const PRECACHE_URLS = ["/", "/manifest.webmanifest", "/icons/icon-192.svg", "/icons/icon-512.svg"];
 
 self.addEventListener("install", (event) => {

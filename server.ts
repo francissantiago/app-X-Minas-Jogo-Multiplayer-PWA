@@ -5,11 +5,14 @@ import WebSocket, { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.PORT || 3000);
 const MINE_DAMAGE = Number(process.env.MINE_DAMAGE || 1);
+const ROWS = 8;
+const COLS = "ABCDEFGH";
+const MINES_PER_ROW = 3;
 
 const app = express();
 
 // Em produção, o Vite gera em dist/public (ver vite.config.ts)
-const staticDir = path.join(__dirname, "./");
+const staticDir = path.join(__dirname, "public");
 app.use(express.static(staticDir));
 
 // SPA fallback
@@ -76,8 +79,8 @@ function makeInitialPlayerState(): PlayerState {
   return {
     points: 20,
     currentRow: 1,
-    attemptedByRow: Array.from({ length: 10 }, () => new Set<string>()),
-    mineHitsByRow: Array.from({ length: 10 }, () => new Set<string>())
+    attemptedByRow: Array.from({ length: ROWS }, () => new Set<string>()),
+    mineHitsByRow: Array.from({ length: ROWS }, () => new Set<string>())
   };
 }
 
@@ -126,23 +129,24 @@ function publicState(room: Room, forPlayerId: string) {
 
 function validateTrapMap(traps: unknown): string | null {
   // traps: [{row:1, x:"C", mines:["A","B","D","E"]}, ...]
-  if (!Array.isArray(traps) || traps.length !== 10) return "Mapa inválido: esperado 10 linhas.";
-  const cols = new Set("ABCDEFGHIJ".split(""));
+  if (!Array.isArray(traps) || traps.length !== ROWS) return `Mapa inválido: esperado ${ROWS} linhas.`;
+  const cols = new Set(COLS.split(""));
   for (const r of traps as any[]) {
     if (!r || typeof r.row !== "number") return "Mapa inválido: linha sem número.";
-    if (r.row < 1 || r.row > 10) return "Mapa inválido: número de linha fora de 1..10.";
+    if (r.row < 1 || r.row > ROWS) return `Mapa inválido: número de linha fora de 1..${ROWS}.`;
     if (typeof r.x !== "string" || !cols.has(r.x)) return `Mapa inválido: X inválido na linha ${r.row}.`;
-    if (!Array.isArray(r.mines) || r.mines.length !== 4) return `Mapa inválido: esperado 4 minas na linha ${r.row}.`;
+    if (!Array.isArray(r.mines) || r.mines.length !== MINES_PER_ROW)
+      return `Mapa inválido: esperado ${MINES_PER_ROW} minas na linha ${r.row}.`;
     const mineSet = new Set<string>(r.mines as string[]);
-    if (mineSet.size !== 4) return `Mapa inválido: minas repetidas na linha ${r.row}.`;
+    if (mineSet.size !== MINES_PER_ROW) return `Mapa inválido: minas repetidas na linha ${r.row}.`;
     for (const m of mineSet) {
       if (typeof m !== "string" || !cols.has(m)) return `Mapa inválido: mina inválida (${String(m)}) na linha ${r.row}.`;
     }
     if (mineSet.has(r.x)) return `Mapa inválido: X não pode coincidir com mina na linha ${r.row}.`;
   }
   const rows = new Set((traps as any[]).map((t) => t.row));
-  if (rows.size !== 10) return "Mapa inválido: linhas repetidas.";
-  for (let i = 1; i <= 10; i++) if (!rows.has(i)) return `Mapa inválido: faltando linha ${i}.`;
+  if (rows.size !== ROWS) return "Mapa inválido: linhas repetidas.";
+  for (let i = 1; i <= ROWS; i++) if (!rows.has(i)) return `Mapa inválido: faltando linha ${i}.`;
   return null;
 }
 
@@ -262,11 +266,11 @@ wss.on("connection", (ws) => {
         if (room.turnPlayerId !== client.id) return safeSend(ws, { type: "error", message: "Não é o seu turno." });
 
         const col = String(msg.col || "").toUpperCase();
-        if (!"ABCDEFGHIJ".includes(col)) return safeSend(ws, { type: "error", message: "Coluna inválida (A-J)." });
+        if (!COLS.includes(col)) return safeSend(ws, { type: "error", message: `Coluna inválida (A-${COLS[COLS.length - 1]}).` });
 
         const ps = room.playerState[client.id];
         const row = ps.currentRow;
-        if (row < 1 || row > 10) return safeSend(ws, { type: "error", message: "Linha atual inválida." });
+        if (row < 1 || row > ROWS) return safeSend(ws, { type: "error", message: "Linha atual inválida." });
         const attempted = ps.attemptedByRow[row - 1];
         if (attempted.has(col)) return safeSend(ws, { type: "error", message: "Você já tentou essa coluna nesta linha." });
         attempted.add(col);
@@ -284,7 +288,7 @@ wss.on("connection", (ws) => {
         if (col === rowTrap.x) {
           outcome = "x";
           ps.currentRow = row + 1;
-          if (ps.currentRow === 11) {
+          if (ps.currentRow === ROWS + 1) {
             gameOver = true;
             winnerId = client.id;
             finishGame(room, winnerId);
