@@ -8,6 +8,7 @@ const MINE_DAMAGE = Number(process.env.MINE_DAMAGE || 1);
 const ROWS = 8;
 const COLS = "ABCDEFGH";
 const MINES_PER_ROW = 3;
+const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutos
 
 const app = express();
 
@@ -23,7 +24,7 @@ app.get("*", (_req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
-type Player = { id: string; name: string; ws: WebSocket };
+type Player = { id: string; name: string; ws: WebSocket; lastActivity: number };
 type Phase = "waiting" | "setup" | "play" | "finished";
 
 type PlayerState = {
@@ -48,6 +49,33 @@ type Room = {
 };
 
 const rooms = new Map<string, Room>();
+
+function removeInactivePlayers() {
+  const now = Date.now();
+  for (const [code, room] of rooms) {
+    const activePlayers = room.players.filter(p => now - p.lastActivity < INACTIVE_TIMEOUT);
+    if (activePlayers.length !== room.players.length) {
+      // Remover estados dos inativos
+      for (const p of room.players) {
+        if (!activePlayers.includes(p)) {
+          delete room.playerState[p.id];
+          delete room.setupSubmittedBy[p.id];
+          delete room.trapsByTargetPlayerId[p.id];
+        }
+      }
+      room.players = activePlayers;
+      if (room.players.length === 0) {
+        rooms.delete(code);
+      } else {
+        if (room.phase === "play" && room.players.length === 1) {
+          const winnerId = room.players[0].id;
+          finishGame(room, winnerId);
+        }
+        for (const p of room.players) safeSend(p.ws, { type: "room_state", state: publicState(room, p.id) });
+      }
+    }
+  }
+}
 
 function makeRoomCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -162,15 +190,17 @@ function finishGame(room: Room, winnerId: string | null) {
 }
 
 wss.on("connection", (ws) => {
-  const client: { id: string | null; name: string | null; roomCode: string | null } = {
+  const client: { id: string | null; name: string | null; roomCode: string | null; lastActivity: number } = {
     id: null,
     name: null,
-    roomCode: null
+    roomCode: null,
+    lastActivity: Date.now()
   };
 
   safeSend(ws, { type: "connected", mineDamage: MINE_DAMAGE });
 
   ws.on("message", (raw) => {
+    client.lastActivity = Date.now();
     let msg: any;
     try {
       msg = JSON.parse(String(raw));
@@ -179,6 +209,13 @@ wss.on("connection", (ws) => {
     }
 
     try {
+      if (client.roomCode) {
+        const room = rooms.get(client.roomCode);
+        if (room) {
+          const player = room.players.find(p => p.id === client.id);
+          if (player) player.lastActivity = Date.now();
+        }
+      }
       if (msg.type === "set_name") {
         client.name = String(msg.name || "").trim().slice(0, 24) || "Jogador";
         return safeSend(ws, { type: "name_ok", name: client.name });
@@ -204,7 +241,7 @@ wss.on("connection", (ws) => {
 
         const room: Room = {
           code,
-          players: [{ id: client.id, name: client.name, ws }],
+          players: [{ id: client.id, name: client.name, ws, lastActivity: client.lastActivity }],
           phase: "waiting",
           turnPlayerId: null,
           winnerId: null,
@@ -227,7 +264,7 @@ wss.on("connection", (ws) => {
 
         client.id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         client.roomCode = code;
-        room.players.push({ id: client.id, name: client.name, ws });
+        room.players.push({ id: client.id, name: client.name, ws, lastActivity: client.lastActivity });
         room.playerState[client.id] = makeInitialPlayerState();
         room.setupSubmittedBy[client.id] = false;
 
@@ -371,6 +408,8 @@ wss.on("connection", (ws) => {
     for (const p of room.players) safeSend(p.ws, { type: "room_state", state: publicState(room, p.id) });
   });
 });
+
+setInterval(removeInactivePlayers, 60 * 1000); // Verificar a cada minuto
 
 server.listen(PORT, '0.0.0.0', () => {
   // eslint-disable-next-line no-console
