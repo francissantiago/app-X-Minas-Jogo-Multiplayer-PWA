@@ -12,7 +12,7 @@ const MINES_PER_ROW = 3;
 const app = express();
 
 // Em produção, o Vite gera em dist/public (ver vite.config.ts)
-const staticDir = path.join(__dirname, "public");
+const staticDir = path.join(__dirname, "./");
 app.use(express.static(staticDir));
 
 // SPA fallback
