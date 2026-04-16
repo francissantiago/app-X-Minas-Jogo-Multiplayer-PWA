@@ -964,8 +964,8 @@ function renderOfflinePlay() {
         el("div", { class: "divider" }),
         el("div", { class: "row items-center" }, [
           el("span", { class: "tag", text: "Legenda:" }),
-          el("span", { class: `tag ok ${slotText(0)}` }, [dot(0), el("span", { text: g.players[0].name })]),
-          el("span", { class: `tag ok ${slotText(1)}` }, [dot(1), el("span", { text: g.players[1].name })])
+          el("span", { class: `tag ok ${slotText(0)}` }, [dot(0), el("span", { class: "ml-2" , text: g.players[0].name})]),
+          el("span", { class: `tag ok ${slotText(1)}` }, [dot(1), el("span", { class: "ml-2" , text: g.players[1].name})])
         ]),
         el("div", { class: "divider" }),
         el("div", { class: "board-wrap" }, [board]),
@@ -1062,15 +1062,15 @@ function renderOnlineLobby() {
   );
 
   // Criar usando o código digitado (se houver)
-  const createWithCodeBtn = el(
-    "button",
-    {
-      class: "btn btn-secondary",
-      onClick: () => wsSend({ type: "create_room", roomCode: appState.roomCodeInput }),
-      disabled: appState.wsStatus === "connecting" || !appState.roomCodeInput.trim()
-    },
-    ["Criar com código"]
-  );
+  // const createWithCodeBtn = el(
+  //   "button",
+  //   {
+  //     class: "btn btn-secondary",
+  //     onClick: () => wsSend({ type: "create_room", roomCode: appState.roomCodeInput }),
+  //     disabled: appState.wsStatus === "connecting" || !appState.roomCodeInput.trim()
+  //   },
+  //   ["Criar com código"]
+  // );
 
   const copyBtn = el(
     "button",
@@ -1130,7 +1130,8 @@ function renderOnlineLobby() {
         roomInfo,
         ...(inRoom ? [el("div", { class: "row" }, [copyBtn])] : []),
         el("div", { class: "divider" }),
-        el("div", { class: "row" }, [createBtn, createWithCodeBtn]),
+        // el("div", { class: "row" }, [createBtn, createWithCodeBtn]),
+        el("div", { class: "row" }, [createBtn]),
         el("div", { class: "divider" }),
         el("div", { class: "row" }, [roomInput, joinBtn]),
         el("div", { class: "divider" }),
