@@ -259,7 +259,26 @@ wss.on("connection", (ws) => {
         const code = String(msg.roomCode || "").trim().toUpperCase();
         const room = rooms.get(code);
         if (!room) return safeSend(ws, { type: "error", message: "Sala não encontrada." });
-        if (room.players.length >= 2) return safeSend(ws, { type: "error", message: "Sala cheia (máximo 2 jogadores)." });
+
+        if (room.players.length >= 2) {
+          // Detecta fantasma: readyState não é OPEN ou lastActivity é 0 (desconectado recentemente)
+          const deadPlayer = room.players.find(p => p.ws.readyState !== WebSocket.OPEN || p.lastActivity === 0) ||
+                             room.players.find(p => p.name === client.name);
+                             
+          if (deadPlayer) {
+            // Reconexão ativa: herda o slot
+            deadPlayer.ws = ws;
+            deadPlayer.lastActivity = Date.now();
+            client.id = deadPlayer.id;
+            client.roomCode = code;
+            
+            for (const p of room.players) safeSend(p.ws, { type: "room_state", state: publicState(room, p.id) });
+            return safeSend(ws, { type: "room_joined", playerId: client.id, state: publicState(room, client.id) });
+          } else {
+            return safeSend(ws, { type: "error", message: "Sala cheia (máximo 2 jogadores)." });
+          }
+        }
+
         if (room.phase !== "waiting") return safeSend(ws, { type: "error", message: "Sala já iniciou." });
 
         client.id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -390,22 +409,12 @@ wss.on("connection", (ws) => {
     const room = rooms.get(client.roomCode);
     if (!room) return;
 
-    room.players = room.players.filter((p) => p.id !== client.id);
-    delete room.playerState[client.id];
-    delete room.setupSubmittedBy[client.id];
-    delete room.trapsByTargetPlayerId[client.id];
+    // Sempre marcar como inativo, permitindo reconexão rápida
+    const p = room.players.find(x => x.id === client.id);
+    if (p) p.lastActivity = 0;
 
-    if (room.players.length === 0) {
-      rooms.delete(room.code);
-      return;
-    }
-
-    if (room.phase === "play") {
-      const winnerId = room.players[0].id;
-      finishGame(room, winnerId);
-    }
-
-    for (const p of room.players) safeSend(p.ws, { type: "room_state", state: publicState(room, p.id) });
+    // Não remover da lista imediatamente; deixar removeInactivePlayers cuidar disso
+    // Isso permite reconexões rápidas substituindo o slot morto
   });
 });
 

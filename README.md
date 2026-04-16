@@ -1,13 +1,13 @@
 # X & Minas — Jogo Multiplayer (PWA)
 
-Jogo de 10×10 (colunas **A–J** e linhas **1–10**) com 2 jogadores, **offline**, **LAN** e **online**.  
-Objetivo: **encontrar o “X” de cada linha**, em ordem, até encontrar o último “X” na **linha 10**.
+Jogo de 8×8 (colunas **A–H** e linhas **1–8**) com 2 jogadores, **offline**, **LAN** e **online**.  
+Objetivo: **encontrar o “X” de cada linha**, em ordem, até encontrar o último “X” na **linha 8**.
 
 ## Regras (implementação)
 Como você não respondeu às perguntas de esclarecimento, eu implementei a interpretação mais direta e jogável:
 
 - **Setup secreto:** antes de começar, cada jogador configura, para o **oponente**, em **cada linha**:
-  - **4 minas** (colunas) → ao oponente escolher, perde pontos
+  - **3 minas** (colunas) → ao oponente escolher, perde pontos
   - **1 X** (coluna) → ao oponente escolher, **avança para a próxima linha**
 - **Turnos alternados:** em seu turno, você escolhe **uma coluna** na **sua linha atual**.
   - Se achar **X**: avança 1 linha
@@ -15,7 +15,7 @@ Como você não respondeu às perguntas de esclarecimento, eu implementei a inte
   - Se não achar nada: permanece na mesma linha
 - Cada jogador começa com **20 pontos**. Se chegar a **0**, é eliminado.
 - Vence quem:
-  - encontra o **X da linha 10** primeiro, **ou**
+  - encontra o **X da linha 8** primeiro, **ou**
   - elimina o oponente (zera os pontos).
 
 ## Rodar (LAN/online + PWA)

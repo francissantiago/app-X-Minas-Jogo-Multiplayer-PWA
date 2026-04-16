@@ -562,10 +562,10 @@ function setupRowEditor(
   const minesLeft = MINES_PER_ROW - r.mines.length;
   const xSet = !!r.x;
 
-  const header = el("div", { class: "row" }, [
-    pill(`Editando linha ${row}`),
+  const header = el("div", { class: "flex flex-wrap gap-2 justify-center" }, [
+    pill(`Editando L${row}`),
     pill(`Minas restantes: ${Math.max(0, minesLeft)}`),
-    pill(`X: ${xSet ? r.x! : "não definido"}`)
+    pill(`X: ${xSet ? r.x! : "pendente"}`)
   ]);
 
   const grid = el("div", { class: "board-grid" }, [
@@ -579,7 +579,7 @@ function setupRowEditor(
     const isX = r.x === c;
     const label = isX ? "X" : isMine ? "•" : "";
 
-    const btn = el("div", { class: "cell btncell", text: label });
+    const btn = el("div", { class: "cell btncell text-lg font-bold", text: label });
     btn.title = isX ? "X" : isMine ? "Mina" : "Vazio";
     (btn as HTMLElement).style.borderColor = isX ? "rgba(76,201,240,0.55)" : isMine ? "rgba(255,77,109,0.55)" : "";
     (btn as HTMLElement).style.background = isX ? "rgba(76,201,240,0.12)" : isMine ? "rgba(255,77,109,0.12)" : "";
@@ -592,18 +592,18 @@ function setupRowEditor(
     grid.appendChild(btn);
   }
 
-  const hint = el("div", { class: "muted small" }, [
-    "Dica: clique para marcar/desmarcar mina. Clique com botão direito para definir o X (no celular use o botão “Definir X”)."
+  const hint = el("div", { class: "muted small text-center" }, [
+    "Dica: Clique para mina. Segure (mobile) ou botão direito para X. Ou use botões abaixo."
   ]);
 
-  const xButtons = el("div", { class: "row" }, [
-    el("span", { class: "muted small", text: "Definir X:" }),
-    el("div", {class: "row"}, [
+  const xButtons = el("div", { class: "flex flex-col gap-2 mt-2 items-center" }, [
+    el("span", { class: "text-sm font-semibold muted", text: "Definir o lugar do 'X':" }),
+    el("div", { class: "flex flex-wrap gap-2 justify-center" }, [
       ...COLS.map((c) =>
         el(
           "button",
           {
-            class: "btn btn-secondary",
+            class: `btn ${r.x === c ? 'btn-primary border-cyan-400/50 outline outline-2 outline-cyan-500/30' : 'btn-secondary shadow-sm'} px-3 py-1 font-mono`,
             onClick: () => onSetX(c)
           },
           [c]
@@ -612,12 +612,10 @@ function setupRowEditor(
     ]),
   ]);
 
-  return el("div", {}, [
+  return el("div", { class: "flex flex-col gap-4" }, [
     header,
-    el("div", { class: "divider" }),
-    el("div", { class: "board-wrap" }, [grid]),
+    el("div", { class: "board-wrap flex justify-center" }, [grid]),
     hint,
-    el("div", { class: "divider" }),
     xButtons
   ]);
 }
@@ -740,49 +738,63 @@ function renderMenu() {
     }
   });
 
-  const offlineBtn = el("button", { class: "btn btn-primary", onClick: startOffline }, ["Jogar offline (local)"]);
+  const offlineBtn = el("button", { class: "btn btn-primary w-full sm:w-auto flex-1 justify-center", onClick: startOffline }, ["Jogar offline"]);
   const onlineBtn = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary w-full sm:w-auto flex-1 justify-center",
       onClick: () => {
         connectOnline();
         appState.screen = "online_lobby";
         render();
       }
     },
-    ["Jogar em LAN/online"]
+    ["Jogar online"]
   );
 
-  const expl = el("div", { class: "muted small" }, [
-    `Regras: cada jogador configura, em segredo, ${MINES_PER_ROW} minas e 1 X por linha para o oponente. No jogo, em seu turno você escolhe uma célula (coluna) na sua linha atual. Se achar o X, avança; se cair em mina, perde pontos; caso contrário, permanece.`
+  const formSection = el("div", { class: "flex flex-col gap-4 mt-2" }, [
+    el("div", {}, [
+      el("label", { class: "text-sm font-semibold mb-1 block", text: "1. Seu Nome" }),
+      nameInput,
+      el("span", { class: "muted small block mt-1", text: "Usado em ambas as modalidades."})
+    ]),
+    el("div", {}, [
+      el("label", { class: "text-sm font-semibold mb-1 block", text: "2. Oponente Local (opcional)" }),
+      name2Input,
+      el("span", { class: "muted small block mt-1", text: "Usado apenas para partidas na mesma tela."})
+    ])
   ]);
 
-  return el("div", { class: "layout-2" }, [
-    el("div", { class: "col" }, [
-      card("Modo de jogo", [
-        el("div", { class: "row" }, [offlineBtn, onlineBtn]),
-        el("div", { class: "divider" }),
-        el("div", {}, [
-          el("label", { class: "muted small", text: "Nome (usado no online e no offline):" }),
-          nameInput,
-          el("div", { class: "divider" }),
-          el("label", { class: "muted small", text: "Nome do Jogador 2 (apenas offline/local):" }),
-          name2Input
-        ]),
-        el("div", { class: "divider" }),
-        expl
-      ])
+  const actionsSection = el("div", { class: "flex flex-col sm:flex-row gap-3 mt-4" }, [
+    offlineBtn,
+    onlineBtn
+  ]);
+
+  const setupCard = card("Começar a Jogar", [
+    formSection,
+    el("div", { class: "divider my-4" }),
+    el("div", { class: "text-sm font-semibold mb-3", text: "3. Escolha o modo de jogo" }),
+    actionsSection
+  ]);
+
+  const rulesCard = card("Como Jogar", [
+    el("div", { class: "flex flex-wrap gap-2 mb-4" }, [
+      pill(`${COLS.length} colunas (A-${COLS[COLS.length - 1]})`), 
+      pill(`${ROWS} linhas (1-${ROWS})`), 
+      pill("20 pontos")
     ]),
-    el("div", { class: "col" }, [
-      card("Como vencer", [
-        el("div", { class: "row" }, [pill(`${COLS.length} colunas (A-${COLS[COLS.length - 1]})`), pill(`${ROWS} linhas (1-${ROWS})`), pill("20 pontos")]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted" }, [
-          `Você começa na linha 1. Cada linha tem um único X (avanço) e ${MINES_PER_ROW} minas (penalidade). Encontre o X da linha ${ROWS} antes do oponente, ou elimine-o zerando os pontos.`
-        ])
-      ])
+    el("div", { class: "space-y-3 text-sm muted" }, [
+      el("p", {}, [`• Cada jogador configura ${MINES_PER_ROW} minas (dano) e 1 X (avanço) por linha para o oponente.`]),
+      el("p", {}, ["• No seu turno, clique em uma célula (coluna) na sua linha atual."]),
+      el("p", {}, ["• Achou o X? Você avança para a próxima linha livre de perigos."]),
+      el("p", {}, ["• Pisou em mina? Você perde pontos. Fique atento e não zere sua vida!"]),
+      el("p", { class: "font-semibold opacity-100 mt-2" }, [`Objetivo: Encontre o X da linha ${ROWS} primeiro, ou simplesmente sobreviva até o oponente perder todos os pontos.`])
     ])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+    setupCard,
+    rulesCard
   ]);
 }
 
@@ -804,6 +816,7 @@ function renderOfflineSetup() {
   const rowSel = el(
     "select",
     {
+      class: "input w-full sm:w-auto flex-1 cursor-pointer font-semibold",
       onChange: (e: Event) => {
         g.setupRow = Number((e.target as HTMLSelectElement).value);
         render();
@@ -835,23 +848,23 @@ function renderOfflineSetup() {
 
   const rowEditor = setupRowEditor(g.setupDraft, g.setupRow, onToggleMine, onSetX);
 
-  const submit = el("button", { class: "btn btn-primary", onClick: offlineSubmitSetup }, ["Concluir setup"]);
+  const submit = el("button", { class: "btn btn-primary w-full sm:w-auto flex-1 justify-center", onClick: offlineSubmitSetup }, ["Concluir setup"]);
   const randomRowBtn = el(
     "button",
     {
-      class: "btn btn-secondary mt-2",
+      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
       onClick: () => {
         randomizeDraftRowInPlace(g.setupDraft, g.setupRow);
         setLog(`Linha ${g.setupRow} gerada aleatoriamente.`);
         render();
       }
     },
-    ["Aleatório (linha)"]
+    ["Surpresa (linha)"]
   );
   const randomAllBtn = el(
     "button",
     {
-      class: "btn btn-secondary mt-2",
+      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
       onClick: () => {
         randomizeDraftInPlace(g.setupDraft);
         g.setupRow = 1;
@@ -859,12 +872,12 @@ function renderOfflineSetup() {
         render();
       }
     },
-    ["Aleatório (tudo)"]
+    ["Surpresa (todas)"]
   );
   const back = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary w-full sm:w-auto flex-1 justify-center",
       onClick: () => {
         appState.screen = "menu";
         appState.offline = null;
@@ -874,34 +887,43 @@ function renderOfflineSetup() {
     ["Voltar"]
   );
 
-  return el("div", { class: "layout-2" }, [
-    el("div", { class: "col" }, [
-      card("Setup (offline)", [
-        el("div", { class: "muted" }, [`${configurador} está configurando as armadilhas de ${alvo}.`]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [pill("Escolha a linha:"), rowSel]),
-        el("div", { class: "row" }, [randomRowBtn, randomAllBtn]),
-        el("div", { class: "divider" }),
-        rowEditor,
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [submit, back])
-      ])
+  const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-3 items-end sm:items-center bg-white/5 p-3 rounded-lg border border-white/10" }, [
+    el("div", { class: "w-full sm:flex-1" }, [
+      el("label", { class: "text-sm font-semibold mb-1 block", text: "Escolher linha:" }),
+      rowSel
     ]),
-    el("div", { class: "col" }, [
-      card("Checklist do setup", [
-        el("div", { class: "muted small" }, [`Cada linha deve ter exatamente 1 X e ${MINES_PER_ROW} minas.`]),
-        el("div", { class: "divider" }),
-        el("div", { class: "grid gap-3" }, [
-          ...g.setupDraft.map((r) =>
-            el("div", { class: "row flex justify-center gap-4" }, [
-              pill(`Linha ${r.row}`),
-              el("span", { class: `tag ${r.x ? "ok" : "danger"}`.trim(), text: r.x ? `X: ${r.x}` : "X faltando" }),
-              el("span", { class: `tag ${r.mines.length === MINES_PER_ROW ? "ok" : "warn"}`.trim(), text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
-            ])
-          )
-        ])
-      ])
+    el("div", { class: "flex flex-row gap-2 w-full sm:w-auto flex-3" }, [
+      randomRowBtn,
+      randomAllBtn
     ])
+  ]);
+
+  const mainCard = card("Setup (offline)", [
+    el("div", { class: "text-sm muted" }, [`${configurador} está configurando as armadilhas para ${alvo}.`]),
+    el("div", { class: "divider my-4" }),
+    controlsGroup,
+    el("div", { class: "divider my-4" }),
+    rowEditor,
+    el("div", { class: "divider my-4" }),
+    el("div", { class: "flex flex-col sm:flex-row gap-3" }, [submit, back])
+  ]);
+
+  const checklistCard = card("Checklist do setup", [
+    el("div", { class: "muted small mb-4" }, [`Cada linha deve ter exatamente 1 X e ${MINES_PER_ROW} minas.`]),
+    el("div", { class: "grid gap-3 sm:grid-cols-2" }, [
+      ...g.setupDraft.map((r) =>
+        el("div", { class: "flex flex-wrap items-center justify-between gap-1 p-2 border border-white/10 rounded-md bg-white/5 shadow-sm" }, [
+          pill(`L${r.row}`),
+          el("span", { class: `tag ${r.x ? "ok" : "danger"} text-xs`.trim(), text: r.x ? `X: ${r.x}` : "X faltante" }),
+          el("span", { class: `tag ${r.mines.length === MINES_PER_ROW ? "ok" : "warn"} text-xs`.trim(), text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
+        ])
+      )
+    ])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+    mainCard,
+    checklistCard
   ]);
 }
 
@@ -954,47 +976,39 @@ function renderOfflinePlay() {
     ["Voltar"]
   );
 
-  return el("div", { class: "layout-game" }, [
-    el("div", { class: "col" }, [
-      card("Partida (offline)", [
-        el(
-          "div",
-          { class: `row items-center justify-between rounded-xl border px-3 py-2 ${slotAccent(pi)}` },
-          [
-            el("div", { class: "row items-center" }, [
-              el("span", { class: `tag ok ${slotText(pi)}`, text: `Jogador da vez: ${p.name}` }),
-              el("span", { class: "tag", text: `Linha atual: ${Math.min(ROWS, p.currentRow)}` })
-            ]),
-            el("span", { class: "muted small", text: "Clique apenas na sua linha atual" })
-          ]
-        ),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [
-          pill(`${g.players[0].name} — pontos: ${g.players[0].points} — linha: ${Math.min(ROWS, g.players[0].currentRow)}`),
-          pill(`${g.players[1].name} — pontos: ${g.players[1].points} — linha: ${Math.min(ROWS, g.players[1].currentRow)}`)
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row items-center" }, [
-          el("span", { class: "tag", text: "Legenda:" }),
-          el("span", { class: `tag ok ${slotText(0)}` }, [dot(0), el("span", { class: "ml-2" , text: g.players[0].name})]),
-          el("span", { class: `tag ok ${slotText(1)}` }, [dot(1), el("span", { class: "ml-2" , text: g.players[1].name})])
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "board-wrap" }, [board]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [reset, back])
+  return el("div", { class: "flex flex-col gap-5 w-full max-w-xl mx-auto" }, [
+    card("Partida (offline)", [
+      el(
+        "div",
+        { class: `flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 mb-4` },
+        [
+          el("div", { class: "flex flex-wrap items-center gap-2" }, [
+            el("span", { class: `tag ${slotText(pi)} border border-white/20 px-3 py-1`, text: `Jogador da vez: ${p.name}` }),
+            el("span", { class: "tag border border-white/10 px-3 py-1 bg-black/20", text: `Linha atual: ${Math.min(ROWS, p.currentRow)}` })
+          ]),
+          el("span", { class: "text-sm text-white/70 ml-1", text: "Clique apenas na sua linha atual" })
+        ]
+      ),
+      el("div", { class: "flex flex-col gap-2 mb-4" }, [
+        pill(`${g.players[0].name} — pontos: ${g.players[0].points} — linha: ${Math.min(ROWS, g.players[0].currentRow)}`),
+        pill(`${g.players[1].name} — pontos: ${g.players[1].points} — linha: ${Math.min(ROWS, g.players[1].currentRow)}`)
+      ]),
+      el("div", { class: "flex flex-wrap items-center gap-3 mb-5" }, [
+        el("span", { class: "text-sm font-semibold opacity-70", text: "Legenda:" }),
+        el("span", { class: `tag ${slotText(0)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(0), el("span", { text: g.players[0].name })]),
+        el("span", { class: `tag ${slotText(1)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(1), el("span", { text: g.players[1].name })])
+      ]),
+      el("div", { class: "board-wrap mb-5" }, [board]),
+      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [
+        el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => startOffline() }, ["Novo jogo"]),
+        back
       ])
     ]),
-    el("div", { class: "col" }, [
-      card("Progresso", [
-        el("div", { class: "muted small" }, ["Status das linhas (por jogador)."]),
-        el("div", { class: "divider" }),
-        el("div", { class: "grid gap-3 sm:grid-cols-2" }, [
-          card(g.players[0].name, [progressList(g.players[0].currentRow)]),
-          card(g.players[1].name, [progressList(g.players[1].currentRow)])
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted small" }, ["Dica: as bolinhas no tabuleiro mostram quais células cada jogador já tentou."])
+    card("Progresso", [
+      el("div", { class: "text-sm muted mb-3" }, ["Status das linhas (por jogador)."]),
+      el("div", { class: "grid gap-3 sm:grid-cols-2" }, [
+        card(g.players[0].name, [progressList(g.players[0].currentRow)]),
+        card(g.players[1].name, [progressList(g.players[1].currentRow)])
       ])
     ])
   ]);
@@ -1116,47 +1130,76 @@ function renderOnlineLobby() {
   );
 
   const roomInfo = s?.roomCode
-    ? el("div", { class: "row" }, [
-        el("span", { class: "tag ok", text: `Sala: ${s.roomCode}` }),
-        el("span", { class: "tag", text: `Jogadores: ${s.playersCount}/2` }),
-        el("span", { class: "tag", text: `Fase: ${s.phase}` })
+    ? el("div", { class: "p-4 bg-white/5 border border-white/10 rounded-lg flex flex-col gap-2 mt-4" }, [
+        el("div", { class: "flex items-center gap-2" }, [
+          el("span", { class: "tag ok font-bold", text: `Sala: ${s.roomCode}` }),
+          el("span", { class: "tag", text: `Jogadores: ${s.playersCount}/2` }),
+          el("span", { class: "tag", text: `Fase: ${s.phase}` })
+        ])
       ])
-    : el("div", { class: "muted small", text: "Crie uma sala ou entre com um código." });
+    : null;
 
-  return el("div", { class: "layout-2" }, [
-    el("div", { class: "col" }, [
-      card("LAN / Online", [
-        el("div", { class: "muted small" }, [
-          "Passo a passo: (1) um jogador cria a sala e compartilha o código; (2) o outro entra usando o mesmo código."
-        ]),
-        el("div", { class: "divider" }),
-        el("label", { class: "muted small", text: "Nome:" }),
-        nameInput,
-        el("div", { class: "divider" }),
-        el("div", { class: "row items-center" }, [
-          connectBtn,
-          el("span", { class: `tag ${connected ? "ok" : appState.wsStatus === "connecting" ? "warn" : "danger"}`.trim(), text: `WS: ${appState.wsStatus}` }),
-          back
-        ]),
-        el("div", { class: "divider" }),
-        roomInfo,
-        ...(inRoom ? [el("div", { class: "row" }, [copyBtn])] : []),
-        el("div", { class: "divider" }),
-        // el("div", { class: "row" }, [createBtn, createWithCodeBtn]),
-        el("div", { class: "row" }, [createBtn]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [roomInput, joinBtn]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted small" }, [`Dano da mina (servidor): -${appState.mineDamage} ponto(s).`])
-      ])
+  const headerControls = el("div", { class: "flex justify-between items-center mb-2" }, [
+    back,
+    el("div", { class: "flex items-center gap-2" }, [
+      connectBtn,
+      el("span", { class: `tag ${connected ? "ok" : appState.wsStatus === "connecting" ? "warn" : "danger"}`.trim(), text: `WS: ${appState.wsStatus}` })
+    ])
+  ]);
+
+  const nameSection = el("div", { class: "flex flex-col gap-2 mt-2" }, [
+    el("label", { class: "text-sm font-semibold", text: "1. Seu Nome" }),
+    nameInput,
+    el("span", { class: "muted small", text: "Você pode atualizar seu nome a qualquer momento." })
+  ]);
+
+  const actionsSection = el("div", { class: "grid gap-6 mt-4 sm:grid-cols-2" }, [
+    // Lado esquerdo: Criar
+    el("div", { class: "flex flex-col gap-3" }, [
+      el("span", { class: "text-sm font-semibold", text: "2. Nova Partida" }),
+      el("div", { class: "flex-1 flex" }, [
+        el("button", { class: "btn btn-primary w-full h-full", onClick: () => wsSend({ type: "create_room" }), disabled: appState.wsStatus === "connecting" }, [
+          "Criar Sala"
+        ])
+      ]),
+      el("span", { class: "muted small", text: "Crie e envie o código para um amigo." })
     ]),
-    el("div", { class: "col" }, [
-      card("Próximo passo", [
-        el("div", { class: "muted" }, ["Quando 2 jogadores entrarem, cada um fará o setup (minas e X) para o oponente."]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted small" }, ["Dica: no setup, clique para mina e use botão direito (ou botões abaixo) para definir o X."])
+    // Lado direito: Juntar
+    el("div", { class: "flex flex-col gap-3" }, [
+      el("span", { class: "text-sm font-semibold", text: "Ou 3. Entrar em Sala" }),
+      el("div", { class: "flex flex-col gap-2" }, [
+        roomInput,
+        el("button", {
+          class: "btn mx-0", 
+          style: "background: var(--surface-hover); border-color: var(--surface-border);",
+          onClick: () => wsSend({ type: "join_room", roomCode: appState.roomCodeInput }),
+          disabled: appState.wsStatus === "connecting" || !appState.roomCodeInput.trim()
+        }, ["Entrar na Sala"])
       ])
     ])
+  ]);
+
+  const mainCard = card("Lobby Online", [
+    headerControls,
+    el("div", { class: "divider my-4" }),
+    nameSection,
+    el("div", { class: "divider my-4" }),
+    actionsSection,
+    ...(s?.roomCode ? [roomInfo, el("div", { class: "mt-2"}, [copyBtn])] : []),
+    el("div", { class: "divider my-4" }),
+    el("div", { class: "muted small text-center" }, [`Dano da mina nesta partida (servidor): -${appState.mineDamage} ponto(s)`])
+  ]);
+
+  const infoCard = card("Próximo passo", [
+    el("div", { class: "space-y-2 text-sm muted" }, [
+      el("p", {}, ["• Quando 2 jogadores entrarem na mesma sala, iniciarão a fase de Setup."]),
+      el("p", {}, ["• O jogo começa automaticamente assim que os dois terminarem de configurar as minas."]),
+    ])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+    mainCard,
+    infoCard
   ]);
 }
 
@@ -1169,6 +1212,7 @@ function renderOnlineSetup() {
   const rowSel = el(
     "select",
     {
+      class: "input w-full sm:w-auto flex-1 cursor-pointer font-semibold",
       onChange: (e: Event) => {
         onlineSetup.row = Number((e.target as HTMLSelectElement).value);
         render();
@@ -1181,19 +1225,19 @@ function renderOnlineSetup() {
   const randomRowBtn = el(
     "button",
     {
-      class: "btn btn-secondary mt-2",
+      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
       onClick: () => {
         randomizeDraftRowInPlace(onlineSetup.trapsDraft, onlineSetup.row);
         setLog(`Linha ${onlineSetup.row} gerada aleatoriamente.`);
         render();
       }
     },
-    ["Aleatório (linha)"]
+    ["Surpresa (linha)"]
   );
   const randomAllBtn = el(
     "button",
     {
-      class: "btn btn-secondary mt-2",
+      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
       onClick: () => {
         randomizeDraftInPlace(onlineSetup.trapsDraft);
         onlineSetup.row = 1;
@@ -1201,7 +1245,7 @@ function renderOnlineSetup() {
         render();
       }
     },
-    ["Aleatório (tudo)"]
+    ["Surpresa (todas)"]
   );
 
   const onToggleMine = (col: string) => {
@@ -1224,13 +1268,13 @@ function renderOnlineSetup() {
     render();
   };
 
-  const submit = el("button", { class: "btn btn-primary", onClick: onlineSubmitSetup, disabled: you.setupSubmitted }, [
+  const submit = el("button", { class: "btn btn-primary w-full sm:w-auto flex-1 justify-center", onClick: onlineSubmitSetup, disabled: you.setupSubmitted }, [
     you.setupSubmitted ? "Setup enviado" : "Enviar setup"
   ]);
   const resetDraft = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary w-full sm:w-auto flex-1 justify-center",
       onClick: () => {
         onlineSetup.trapsDraft = newEmptyTraps();
         onlineSetup.row = 1;
@@ -1242,37 +1286,46 @@ function renderOnlineSetup() {
 
   const rowEditor = setupRowEditor(onlineSetup.trapsDraft, onlineSetup.row, onToggleMine, onSetX);
 
-  return el("div", { class: "layout-2" }, [
-    el("div", { class: "col" }, [
-      card("Setup (online)", [
-        el("div", { class: "row" }, [
-          el("span", { class: "tag ok", text: `Sala: ${s.roomCode}` }),
-          el("span", { class: "tag", text: `Você: ${you.name}` }),
-          el("span", { class: "tag", text: `Oponente: ${opp?.name || "aguardando..."}` })
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted" }, [`Configure as armadilhas do seu oponente: ${MINES_PER_ROW} minas e 1 X por linha.`]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [pill("Escolha a linha:"), rowSel]),
-        el("div", { class: "row" }, [randomRowBtn, randomAllBtn]),
-        el("div", { class: "divider" }),
-        rowEditor,
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [submit, resetDraft]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted small" }, [you.setupSubmitted ? "Aguardando oponente enviar o setup..." : "Envie o setup quando terminar."])
-      ])
+  const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-3 items-end sm:items-center bg-white/5 p-3 rounded-lg border border-white/10" }, [
+    el("div", { class: "w-full sm:flex-1" }, [
+      el("label", { class: "text-sm font-semibold mb-1 block", text: "Escolher linha:" }),
+      rowSel
     ]),
-    el("div", { class: "col" }, [
-      card("Status da sala", [
-        el("div", { class: "row" }, [
-          el("span", { class: `tag ${you.setupSubmitted ? "ok" : "warn"}`.trim(), text: you.setupSubmitted ? "Seu setup: OK" : "Seu setup: pendente" }),
-          el("span", { class: `tag ${opp?.setupSubmitted ? "ok" : "warn"}`.trim(), text: opp?.setupSubmitted ? "Setup do oponente: OK" : "Setup do oponente: pendente" })
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "muted small" }, ["Quando os dois setups forem enviados, a partida começa automaticamente."])
-      ])
+    el("div", { class: "flex flex-row gap-2 w-full sm:w-auto flex-3" }, [
+      randomRowBtn,
+      randomAllBtn
     ])
+  ]);
+
+  const topStatus = el("div", { class: "flex flex-wrap items-center gap-2 mb-4 justify-center" }, [
+      el("span", { class: "tag ok font-bold", text: `Sala: ${s.roomCode}` }),
+      el("span", { class: "tag", text: `Você: ${you.name}` }),
+      el("span", { class: "tag", text: `Oponente: ${opp?.name || "..."}` })
+  ]);
+
+  const mainCard = card("Setup (online)", [
+    topStatus,
+    el("div", { class: "text-sm muted mb-4 text-center" }, [`Configure as armadilhas para seu oponente.`]),
+    controlsGroup,
+    el("div", { class: "divider my-4" }),
+    rowEditor,
+    el("div", { class: "divider my-4" }),
+    el("div", { class: "flex flex-col sm:flex-row gap-3" }, [submit, resetDraft]),
+    el("div", { class: "muted small text-center mt-3" }, [you.setupSubmitted ? "Aguardando oponente enviar o setup..." : "Envie o setup quando terminar."])
+  ]);
+
+  const checklistCard = card("Status da Sala", [
+    el("div", { class: "flex flex-col sm:flex-row gap-3 justify-center" }, [
+      el("span", { class: `tag ${you.setupSubmitted ? "ok" : "warn"} font-semibold justify-center py-2 px-4 shadow-sm`.trim(), text: you.setupSubmitted ? "Seu setup: OK" : "Seu setup: Pendente" }),
+      el("span", { class: `tag ${opp?.setupSubmitted ? "ok" : "warn"} font-semibold justify-center py-2 px-4 shadow-sm`.trim(), text: opp?.setupSubmitted ? "Oponente: OK" : "Oponente: Pendente" })
+    ]),
+    el("div", { class: "divider my-3" }),
+    el("div", { class: "muted small text-center" }, ["A partida começa automaticamente quando ambos enviarem."])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+    mainCard,
+    checklistCard
   ]);
 }
 
@@ -1317,47 +1370,40 @@ function renderOnlinePlay() {
     ["Voltar"]
   );
 
-  return el("div", { class: "layout-game" }, [
-    el("div", { class: "col" }, [
-      card("Partida (online)", [
-        el(
-          "div",
-          { class: `row items-center justify-between rounded-xl border px-3 py-2 ${isYourTurn ? slotAccent(you.slot) : "border-white/10 bg-white/5"}` },
-          [
-            el("div", { class: "row items-center" }, [
-              el("span", { class: `tag ${isYourTurn ? "ok " + slotText(you.slot) : "warn"}`.trim(), text: isYourTurn ? "É a sua vez" : "Aguardando oponente" }),
-              el("span", { class: "tag", text: `Linha atual: ${Math.min(ROWS, you.currentRow)}` })
-            ]),
-            el("span", { class: "muted small", text: isYourTurn ? "Clique em uma célula na sua linha atual" : "Você não pode jogar agora" })
-          ]
-        ),
-        el("div", { class: "row" }, [
-          el("span", { class: "tag ok", text: `Sala: ${s.roomCode}` }),
-          el("span", { class: `tag ${isYourTurn ? "ok" : "warn"}`.trim(), text: isYourTurn ? "Seu turno" : "Turno do oponente" })
+  return el("div", { class: "flex flex-col gap-5 w-full max-w-xl mx-auto" }, [
+    card("Partida (online)", [
+      el(
+        "div",
+        { class: `flex flex-col gap-2 rounded-xl border ${isYourTurn ? "border-white/20" : "border-white/10"} bg-white/5 px-4 py-3 mb-4` },
+        [
+          el("div", { class: "flex flex-wrap items-center gap-2" }, [
+            el("span", { class: `tag ${isYourTurn ? slotText(you.slot) : "warn"} border border-white/20 px-3 py-1`, text: isYourTurn ? "É a sua vez" : "Aguardando oponente" }),
+            el("span", { class: "tag border border-white/10 px-3 py-1 bg-black/20", text: `Linha atual: ${Math.min(ROWS, you.currentRow)}` })
+          ]),
+          el("span", { class: "text-sm text-white/70 ml-1", text: isYourTurn ? "Clique em uma célula na sua linha atual" : "Você não pode jogar agora" })
+        ]
+      ),
+      el("div", { class: "flex flex-col gap-2 mb-4" }, [
+        pill(`${you.name} — pontos: ${you.points} — linha: ${Math.min(ROWS, you.currentRow)}`),
+        pill(`${opp.name} — pontos: ${opp.points} — linha: ${Math.min(ROWS, opp.currentRow)}`)
+      ]),
+      el("div", { class: "flex flex-wrap items-center justify-between gap-3 mb-4" }, [
+        el("div", { class: "flex flex-wrap items-center gap-3" }, [
+          el("span", { class: "text-sm font-semibold opacity-70", text: "Legenda:" }),
+          el("span", { class: `tag ${slotText(you.slot)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(you.slot), el("span", { text: you.name })]),
+          el("span", { class: `tag ${slotText(opp.slot)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(opp.slot), el("span", { text: opp.name })])
         ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [
-          pill(`${you.name} — pontos: ${you.points} — linha: ${Math.min(ROWS, you.currentRow)}`),
-          pill(`${opp.name} — pontos: ${opp.points} — linha: ${Math.min(ROWS, opp.currentRow)}`)
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row items-center" }, [
-          el("span", { class: "tag", text: "Legenda:" }),
-          el("span", { class: `tag ok ${slotText(you.slot)}` }, [dot(you.slot), el("span", { text: you.name })]),
-          el("span", { class: `tag ok ${slotText(opp.slot)}` }, [dot(opp.slot), el("span", { text: opp.name })])
-        ]),
-        el("div", { class: "divider" }),
-        el("div", { class: "board-wrap" }, [board]),
-        el("div", { class: "divider" }),
-        el("div", { class: "row" }, [reset, back])
+        el("span", { class: "tag ok whitespace-nowrap", text: `Sala: ${s.roomCode}` })
+      ]),
+      el("div", { class: "board-wrap mb-5" }, [board]),
+      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [
+        el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => wsSend({ type: "reset_room" }) }, ["Reiniciar (após fim)"]),
+        el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => { appState.screen = "menu"; setLog("Voltou ao menu."); } }, ["Sair"])
       ])
     ]),
-    el("div", { class: "col" }, [
-      card("Progresso", [
-        el("div", { class: "muted small" }, ["Status das linhas (por jogador)."]),
-        el("div", { class: "divider" }),
-        el("div", { class: "grid gap-3 sm:grid-cols-2" }, [card(you.name, [progressList(you.currentRow)]), card(opp.name, [progressList(opp.currentRow)])])
-      ])
+    card("Progresso", [
+      el("div", { class: "text-sm muted mb-3" }, ["Status das linhas (por jogador)."]),
+      el("div", { class: "grid gap-3 sm:grid-cols-2" }, [card(you.name, [progressList(you.currentRow)]), card(opp.name, [progressList(opp.currentRow)])])
     ])
   ]);
 }
