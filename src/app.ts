@@ -407,7 +407,14 @@ function wsUrlFromLocation() {
 }
 
 function connectOnline() {
-  if (appState.ws && (appState.ws.readyState === WebSocket.OPEN || appState.ws.readyState === WebSocket.CONNECTING)) return;
+  if (appState.ws && appState.ws.readyState === WebSocket.CONNECTING) return;
+  if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+    // Já conectado, apenas reenvia o nome
+    const name = (appState.name || "").trim() || "Jogador";
+    appState.ws.send(JSON.stringify({ type: "set_name", name }));
+    setLog("Nome atualizado no servidor.");
+    return;
+  }
   appState.wsStatus = "connecting";
   render();
 
@@ -717,6 +724,11 @@ function renderMenu() {
     value: appState.name,
     onInput: (e: Event) => {
       appState.name = (e.target as HTMLInputElement).value;
+      // Se já conectado, atualiza o nome no servidor
+      if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+        const name = (appState.name || "").trim() || "Jogador";
+        appState.ws.send(JSON.stringify({ type: "set_name", name }));
+      }
     }
   });
   const name2Input = el("input", {
