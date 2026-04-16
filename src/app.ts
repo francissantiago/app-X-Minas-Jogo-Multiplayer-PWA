@@ -1047,8 +1047,8 @@ function renderOnlineLobby() {
     value: appState.roomCodeInput,
     onInput: (e: Event) => {
       appState.roomCodeInput = (e.target as HTMLInputElement).value.toUpperCase();
-      render(); // necessário para habilitar/desabilitar botões dependentes do código
-    }
+    },
+    onBlur: () => render()
   });
 
   const joinBtn = el(
@@ -1075,7 +1075,7 @@ function renderOnlineLobby() {
   const copyBtn = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary mt-2",
       disabled: !inRoom,
       onClick: async () => {
         const code = s?.roomCode;
