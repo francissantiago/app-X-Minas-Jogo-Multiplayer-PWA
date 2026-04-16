@@ -591,16 +591,18 @@ function setupRowEditor(
 
   const xButtons = el("div", { class: "row" }, [
     el("span", { class: "muted small", text: "Definir X:" }),
-    ...COLS.map((c) =>
-      el(
-        "button",
-        {
-          class: "btn btn-secondary",
-          onClick: () => onSetX(c)
-        },
-        [c]
+    el("div", {class: "row"}, [
+      ...COLS.map((c) =>
+        el(
+          "button",
+          {
+            class: "btn btn-secondary",
+            onClick: () => onSetX(c)
+          },
+          [c]
+        )
       )
-    )
+    ]),
   ]);
 
   return el("div", {}, [
@@ -825,7 +827,7 @@ function renderOfflineSetup() {
   const randomRowBtn = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary mt-2",
       onClick: () => {
         randomizeDraftRowInPlace(g.setupDraft, g.setupRow);
         setLog(`Linha ${g.setupRow} gerada aleatoriamente.`);
@@ -837,7 +839,7 @@ function renderOfflineSetup() {
   const randomAllBtn = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary mt-2",
       onClick: () => {
         randomizeDraftInPlace(g.setupDraft);
         g.setupRow = 1;
@@ -877,13 +879,15 @@ function renderOfflineSetup() {
       card("Checklist do setup", [
         el("div", { class: "muted small" }, [`Cada linha deve ter exatamente 1 X e ${MINES_PER_ROW} minas.`]),
         el("div", { class: "divider" }),
-        ...g.setupDraft.map((r) =>
-          el("div", { class: "row" }, [
-            pill(`Linha ${r.row}`),
-            el("span", { class: `tag ${r.x ? "ok" : "danger"}`.trim(), text: r.x ? `X: ${r.x}` : "X faltando" }),
-            el("span", { class: `tag ${r.mines.length === MINES_PER_ROW ? "ok" : "warn"}`.trim(), text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
-          ])
-        )
+        el("div", { class: "grid gap-3" }, [
+          ...g.setupDraft.map((r) =>
+            el("div", { class: "row flex justify-center gap-4" }, [
+              pill(`Linha ${r.row}`),
+              el("span", { class: `tag ${r.x ? "ok" : "danger"}`.trim(), text: r.x ? `X: ${r.x}` : "X faltando" }),
+              el("span", { class: `tag ${r.mines.length === MINES_PER_ROW ? "ok" : "warn"}`.trim(), text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
+            ])
+          )
+        ])
       ])
     ])
   ]);
@@ -1164,7 +1168,7 @@ function renderOnlineSetup() {
   const randomRowBtn = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary mt-2",
       onClick: () => {
         randomizeDraftRowInPlace(onlineSetup.trapsDraft, onlineSetup.row);
         setLog(`Linha ${onlineSetup.row} gerada aleatoriamente.`);
@@ -1176,7 +1180,7 @@ function renderOnlineSetup() {
   const randomAllBtn = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "btn btn-secondary mt-2",
       onClick: () => {
         randomizeDraftInPlace(onlineSetup.trapsDraft);
         onlineSetup.row = 1;

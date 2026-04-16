@@ -382,7 +382,8 @@
 .theme-light .subtitle {
   @apply text-slate-600;
 }
-.theme-light .footer {
+.theme-light .footer,
+.theme-light .footer b {
   @apply text-slate-600;
 }
 .theme-light .card {
