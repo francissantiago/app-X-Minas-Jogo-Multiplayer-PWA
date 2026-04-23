@@ -137,16 +137,23 @@
     @apply my-3 h-px bg-white/10;
   }
 
-  /* Tabuleiro estilo "planilha" (100 células) */
+  /* Tabuleiro estilo "planilha" (100 células) — grid fluido sem breakpoints */
   .board-grid {
-    @apply grid items-stretch gap-1 select-none sm:gap-1.5;
-    grid-template-columns: clamp(28px, 8vw, 38px) repeat(8, minmax(0, 1fr));
+    @apply grid items-stretch select-none;
+    gap: clamp(2px, 0.5vw, 6px);
+    grid-template-columns: minmax(28px, clamp(32px, 5vw, 48px)) repeat(8, minmax(28px, 1fr));
+  }
+
+  /* Separador visual na primeira coluna (nº da linha / header #) */
+  .board-grid > .cell:nth-child(9n+1) {
+    aspect-ratio: auto;
+    height: 100%;
+    border-right: 2px solid rgba(255, 255, 255, 0.06);
   }
 
   .cell {
     @apply grid place-items-center rounded-xl border border-white/10 bg-black/20 text-xs font-semibold sm:text-sm;
     aspect-ratio: 1 / 1;
-    min-height: 28px;
   }
 
   .cell.header {
@@ -224,6 +231,27 @@
   .small {
     @apply text-xs;
   }
+
+  /* Classes semânticas para jogadores (tema dinâmico) */
+  .text-slot-0 { @apply text-cyan-200; }
+  .text-slot-1 { @apply text-violet-200; }
+  .text-slot-0-strong { @apply text-cyan-300; }
+  .text-slot-1-strong { @apply text-violet-300; }
+  
+  .border-slot-0 { @apply border-cyan-500/30; }
+  .border-slot-1 { @apply border-violet-500/30; }
+  
+  .bg-slot-0 { @apply bg-cyan-400/50; }
+  .bg-slot-1 { @apply bg-violet-400/50; }
+
+  .shadow-slot-0 { box-shadow: 0 0 15px rgba(34,211,238,0.1); }
+  .shadow-slot-1 { box-shadow: 0 0 15px rgba(167,139,250,0.1); }
+
+  .bg-banner-0 { @apply bg-cyan-500/10 border border-cyan-500/20; }
+  .bg-banner-1 { @apply bg-violet-500/10 border border-violet-500/20; }
+  
+  .bg-panel { @apply bg-white/5 border border-white/10; }
+  .bg-panel-badge { @apply bg-black/20 border border-white/5; }
 
   /* Layouts responsivos (mobile-first) */
   .layout-2 {
@@ -417,6 +445,9 @@
 .theme-light .cell {
   @apply border-black/10 bg-white/70 text-slate-800;
 }
+.theme-light .board-grid > .cell:nth-child(9n+1) {
+  border-right-color: rgba(0, 0, 0, 0.06);
+}
 .theme-light .cell.header {
   @apply bg-black/5 text-slate-600;
 }
@@ -469,3 +500,24 @@
 .theme-light .mine-mark {
   color: rgba(15, 23, 42, 0.85);
 }
+
+/* Classes semânticas para jogadores no tema claro */
+.theme-light .text-slot-0 { @apply text-cyan-700; }
+.theme-light .text-slot-1 { @apply text-violet-700; }
+.theme-light .text-slot-0-strong { @apply text-cyan-700; }
+.theme-light .text-slot-1-strong { @apply text-violet-700; }
+
+.theme-light .border-slot-0 { @apply border-cyan-600/30; }
+.theme-light .border-slot-1 { @apply border-violet-600/30; }
+
+.theme-light .bg-slot-0 { @apply bg-cyan-500/50; }
+.theme-light .bg-slot-1 { @apply bg-violet-500/50; }
+
+.theme-light .shadow-slot-0 { box-shadow: 0 0 15px rgba(8,145,178,0.1); }
+.theme-light .shadow-slot-1 { box-shadow: 0 0 15px rgba(124,58,237,0.1); }
+
+.theme-light .bg-banner-0 { @apply bg-cyan-500/10 border-cyan-600/20; }
+.theme-light .bg-banner-1 { @apply bg-violet-500/10 border-violet-600/20; }
+
+.theme-light .bg-panel { @apply bg-white/70 border-black/10; }
+.theme-light .bg-panel-badge { @apply bg-black/5 border-black/5 text-slate-800; }

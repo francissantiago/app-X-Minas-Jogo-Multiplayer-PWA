@@ -621,17 +621,15 @@ function setupRowEditor(
 }
 
 function slotClasses(slot: number) {
-  return slot === 0
-    ? "bg-cyan-400/15 border-cyan-300/40 text-cyan-200 text-lg font-black"
-    : "bg-violet-400/15 border-violet-300/40 text-violet-200 text-lg font-black";
+  return `bg-banner-${slot} text-slot-${slot} text-lg font-black`;
 }
 
 function slotAccent(slot: number) {
-  return slot === 0 ? "border-cyan-300/40 bg-cyan-400/10" : "border-violet-300/40 bg-violet-400/10";
+  return `bg-banner-${slot}`;
 }
 
 function slotText(slot: number) {
-  return slot === 0 ? "text-cyan-200" : "text-violet-200";
+  return `text-slot-${slot}`;
 }
 
 function boardHasAttempt(attemptedByRow: Array<Set<string>> | string[][], row: number, col: string) {
@@ -792,7 +790,7 @@ function renderMenu() {
     ])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
     setupCard,
     rulesCard
   ]);
@@ -816,7 +814,7 @@ function renderOfflineSetup() {
   const rowSel = el(
     "select",
     {
-      class: "input w-full sm:w-auto flex-1 cursor-pointer font-semibold",
+      class: "input w-full flex-1 cursor-pointer font-semibold",
       onChange: (e: Event) => {
         g.setupRow = Number((e.target as HTMLSelectElement).value);
         render();
@@ -887,12 +885,12 @@ function renderOfflineSetup() {
     ["Voltar"]
   );
 
-  const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-3 items-end sm:items-center bg-white/5 p-3 rounded-lg border border-white/10" }, [
+  const controlsGroup = el("div", { class: "flex flex-col gap-3 items-center justify-center bg-white/5 p-3 rounded-lg border border-white/10" }, [
     el("div", { class: "w-full sm:flex-1" }, [
       el("label", { class: "text-sm font-semibold mb-1 block", text: "Escolher linha:" }),
       rowSel
     ]),
-    el("div", { class: "flex flex-row gap-2 w-full sm:w-auto flex-3" }, [
+    el("div", { class: "flex flex-row gap-2 w-full flex-3" }, [
       randomRowBtn,
       randomAllBtn
     ])
@@ -921,7 +919,7 @@ function renderOfflineSetup() {
     ])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
     mainCard,
     checklistCard
   ]);
@@ -976,28 +974,49 @@ function renderOfflinePlay() {
     ["Voltar"]
   );
 
-  return el("div", { class: "flex flex-col gap-5 w-full max-w-xl mx-auto" }, [
+  return el("div", { class: "flex flex-col gap-5 w-full mx-auto" }, [
     card("Partida (offline)", [
-      el(
-        "div",
-        { class: `flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 mb-4` },
-        [
-          el("div", { class: "flex flex-wrap items-center gap-2" }, [
-            el("span", { class: `tag ${slotText(pi)} border border-white/20 px-3 py-1`, text: `Jogador da vez: ${p.name}` }),
-            el("span", { class: "tag border border-white/10 px-3 py-1 bg-black/20", text: `Linha atual: ${Math.min(ROWS, p.currentRow)}` })
+      // Banner de Turno
+      el("div", { class: `flex flex-col items-center justify-center p-4 mb-6 rounded-2xl border transition-all bg-banner-${pi}` }, [
+        el("span", { class: "text-xs font-bold uppercase tracking-wider opacity-70 mb-1", text: "Vez do Jogador" }),
+        el("div", { class: `text-3xl font-black drop-shadow-md text-center ${slotText(pi)}` }, [p.name]),
+        el("div", { class: "mt-3 inline-flex items-center gap-2 bg-panel-badge px-3 py-1.5 rounded-full" }, [
+          el("span", { class: "text-sm font-medium", text: `Linha atual: ${Math.min(ROWS, p.currentRow)}` })
+        ]),
+        el("span", { class: "text-xs mt-3 opacity-60 text-center max-w-xs", text: "Clique em uma célula livre na sua linha atual para avançar." })
+      ]),
+
+      // Placar
+      el("div", { class: "grid grid-cols-2 gap-3 mb-6" }, [
+        // Jogador 1
+        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${pi === 0 ? "border-slot-0 shadow-slot-0" : "opacity-70"}` }, [
+          el("div", { class: "absolute top-0 left-0 w-full h-1 bg-slot-0" }),
+          el("span", { class: "text-sm font-bold truncate w-full text-center mb-1", text: g.players[0].name }),
+          el("div", { class: "flex items-baseline gap-1 text-2xl font-black text-slot-0-strong" }, [
+            el("span", { text: String(g.players[0].points) }),
+            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
           ]),
-          el("span", { class: "text-sm text-white/70 ml-1", text: "Clique apenas na sua linha atual" })
-        ]
-      ),
-      el("div", { class: "flex flex-col gap-2 mb-4" }, [
-        pill(`${g.players[0].name} — pontos: ${g.players[0].points} — linha: ${Math.min(ROWS, g.players[0].currentRow)}`),
-        pill(`${g.players[1].name} — pontos: ${g.players[1].points} — linha: ${Math.min(ROWS, g.players[1].currentRow)}`)
+          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, g.players[0].currentRow)}` })
+        ]),
+        // Jogador 2
+        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${pi === 1 ? "border-slot-1 shadow-slot-1" : "opacity-70"}` }, [
+          el("div", { class: "absolute top-0 left-0 w-full h-1 bg-slot-1" }),
+          el("span", { class: "text-sm font-bold truncate w-full text-center mb-1", text: g.players[1].name }),
+          el("div", { class: "flex items-baseline gap-1 text-2xl font-black text-slot-1-strong" }, [
+            el("span", { text: String(g.players[1].points) }),
+            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+          ]),
+          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, g.players[1].currentRow)}` })
+        ])
       ]),
-      el("div", { class: "flex flex-wrap items-center gap-3 mb-5" }, [
-        el("span", { class: "text-sm font-semibold opacity-70", text: "Legenda:" }),
-        el("span", { class: `tag ${slotText(0)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(0), el("span", { text: g.players[0].name })]),
-        el("span", { class: `tag ${slotText(1)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(1), el("span", { text: g.players[1].name })])
+
+      // Legenda
+      el("div", { class: "flex flex-wrap items-center justify-center gap-3 mb-5 text-sm" }, [
+        el("span", { class: "text-xs font-semibold opacity-50 uppercase tracking-wider hidden sm:block", text: "Legenda" }),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-0 ${slotText(0)}` }, [dot(0), el("span", { class: "font-semibold truncate max-w-[100px]", text: g.players[0].name })]),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-1 ${slotText(1)}` }, [dot(1), el("span", { class: "font-semibold truncate max-w-[100px]", text: g.players[1].name })])
       ]),
+
       el("div", { class: "board-wrap mb-5" }, [board]),
       el("div", { class: "flex flex-col sm:flex-row gap-3" }, [
         el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => startOffline() }, ["Novo jogo"]),
@@ -1197,7 +1216,7 @@ function renderOnlineLobby() {
     ])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
     mainCard,
     infoCard
   ]);
@@ -1323,7 +1342,7 @@ function renderOnlineSetup() {
     el("div", { class: "muted small text-center" }, ["A partida começa automaticamente quando ambos enviarem."])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 max-w-xl mx-auto w-full" }, [
+  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
     mainCard,
     checklistCard
   ]);
@@ -1370,31 +1389,52 @@ function renderOnlinePlay() {
     ["Voltar"]
   );
 
-  return el("div", { class: "flex flex-col gap-5 w-full max-w-xl mx-auto" }, [
+  return el("div", { class: "flex flex-col gap-5 w-full mx-auto" }, [
     card("Partida (online)", [
-      el(
-        "div",
-        { class: `flex flex-col gap-2 rounded-xl border ${isYourTurn ? "border-white/20" : "border-white/10"} bg-white/5 px-4 py-3 mb-4` },
-        [
-          el("div", { class: "flex flex-wrap items-center gap-2" }, [
-            el("span", { class: `tag ${isYourTurn ? slotText(you.slot) : "warn"} border border-white/20 px-3 py-1`, text: isYourTurn ? "É a sua vez" : "Aguardando oponente" }),
-            el("span", { class: "tag border border-white/10 px-3 py-1 bg-black/20", text: `Linha atual: ${Math.min(ROWS, you.currentRow)}` })
-          ]),
-          el("span", { class: "text-sm text-white/70 ml-1", text: isYourTurn ? "Clique em uma célula na sua linha atual" : "Você não pode jogar agora" })
-        ]
-      ),
-      el("div", { class: "flex flex-col gap-2 mb-4" }, [
-        pill(`${you.name} — pontos: ${you.points} — linha: ${Math.min(ROWS, you.currentRow)}`),
-        pill(`${opp.name} — pontos: ${opp.points} — linha: ${Math.min(ROWS, opp.currentRow)}`)
-      ]),
-      el("div", { class: "flex flex-wrap items-center justify-between gap-3 mb-4" }, [
-        el("div", { class: "flex flex-wrap items-center gap-3" }, [
-          el("span", { class: "text-sm font-semibold opacity-70", text: "Legenda:" }),
-          el("span", { class: `tag ${slotText(you.slot)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(you.slot), el("span", { text: you.name })]),
-          el("span", { class: `tag ${slotText(opp.slot)} border border-white/10 px-3 py-1 flex items-center gap-2` }, [dot(opp.slot), el("span", { text: opp.name })])
+      // Banner de Turno
+      el("div", { class: `relative flex flex-col items-center justify-center p-4 mb-6 rounded-2xl border transition-all ${isYourTurn ? `bg-banner-${you.slot}` : "bg-panel opacity-75"}` }, [
+        el("div", { class: "absolute top-3 right-3 hidden sm:block" }, [
+          el("span", { class: "text-[10px] font-bold uppercase tracking-wider bg-panel-badge px-2 py-1 rounded border border-white/5", text: `Sala: ${s.roomCode}` })
         ]),
-        el("span", { class: "tag ok whitespace-nowrap", text: `Sala: ${s.roomCode}` })
+        el("span", { class: "text-xs font-bold uppercase tracking-wider opacity-70 mb-1", text: isYourTurn ? "Sua vez de jogar" : "Aguardando oponente" }),
+        el("div", { class: `text-3xl font-black drop-shadow-md text-center ${isYourTurn ? slotText(you.slot) : "opacity-60"}` }, [isYourTurn ? "Sua vez!" : "Vez do oponente"]),
+        el("div", { class: "mt-3 inline-flex items-center gap-2 bg-panel-badge px-3 py-1.5 rounded-full" }, [
+          el("span", { class: "text-sm font-medium", text: `Linha atual: ${Math.min(ROWS, you.currentRow)}` })
+        ]),
+        el("span", { class: "text-xs mt-3 opacity-60 text-center max-w-xs", text: isYourTurn ? "Clique em uma célula livre na sua linha atual." : "Aguarde o outro jogador terminar a jogada." })
       ]),
+
+      // Placar
+      el("div", { class: "grid grid-cols-2 gap-3 mb-6" }, [
+        // Você
+        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${isYourTurn ? `border-slot-${you.slot} shadow-slot-${you.slot}` : "opacity-70"}` }, [
+          el("div", { class: `absolute top-0 left-0 w-full h-1 bg-slot-${you.slot}` }),
+          el("span", { class: "text-sm font-bold w-full text-center mb-1 flex items-center justify-center gap-1", text: "Você" }),
+          el("div", { class: `flex items-baseline gap-1 text-2xl font-black text-slot-${you.slot}-strong` }, [
+            el("span", { text: String(you.points) }),
+            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+          ]),
+          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, you.currentRow)}` })
+        ]),
+        // Oponente
+        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${!isYourTurn ? `border-slot-${opp.slot} shadow-slot-${opp.slot}` : "opacity-70"}` }, [
+          el("div", { class: `absolute top-0 left-0 w-full h-1 bg-slot-${opp.slot}` }),
+          el("span", { class: "text-sm font-bold truncate w-full text-center mb-1", text: opp.name }),
+          el("div", { class: `flex items-baseline gap-1 text-2xl font-black text-slot-${opp.slot}-strong` }, [
+            el("span", { text: String(opp.points) }),
+            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+          ]),
+          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, opp.currentRow)}` })
+        ])
+      ]),
+
+      // Legenda
+      el("div", { class: "flex flex-wrap items-center justify-center gap-3 mb-5 text-sm" }, [
+        el("span", { class: "text-xs font-semibold opacity-50 uppercase tracking-wider hidden sm:block", text: "Legenda" }),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-${you.slot} ${slotText(you.slot)}` }, [dot(you.slot), el("span", { class: "font-semibold truncate max-w-[100px]", text: "Você" })]),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-${opp.slot} ${slotText(opp.slot)}` }, [dot(opp.slot), el("span", { class: "font-semibold truncate max-w-[100px]", text: opp.name })])
+      ]),
+
       el("div", { class: "board-wrap mb-5" }, [board]),
       el("div", { class: "flex flex-col sm:flex-row gap-3" }, [
         el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => wsSend({ type: "reset_room" }) }, ["Reiniciar (após fim)"]),
