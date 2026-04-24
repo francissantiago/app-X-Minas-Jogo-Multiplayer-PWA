@@ -24,7 +24,7 @@ function applyTheme(theme: Theme) {
   localStorage.setItem(THEME_KEY, theme);
 
   const btn = document.getElementById("btnTheme") as HTMLButtonElement | null;
-  if (btn) btn.textContent = theme === "dark" ? "Escuro" : "Claro";
+  if (btn) btn.textContent = theme === "dark" ? "🌙" : "☀️";
 }
 
 function toggleTheme() {
@@ -813,8 +813,8 @@ function renderMenu() {
     ]),
     el("div", { class: "grid gap-5 md:grid-cols-3" }, [
       ruleCard("💣", "Plante Armadilhas", `Oculte ${MINES_PER_ROW} minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
-      ruleCard("🏃", "Ache o Atalho", "Adivinhe onde está o X para subir de linha sem tomar dano.", "border-cyan-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.4)]"),
-      ruleCard("🏆", "Sobreviva", "Chegue no topo ou faça o adversário perder seus 20 pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
+      ruleCard("🏃", "Ache o Atalho", "Adivinhe onde está o X para descer de linha sem tomar dano.", "border-cyan-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.4)]"),
+      ruleCard("🏆", "Sobreviva", "Chegue no topo ou faça o adversário perder seus pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
     ])
   ]);
 
@@ -869,12 +869,12 @@ function renderSetupScreen(p: SetupScreenParams): Node {
   const randomRowBtn = el("button", {
     class: "group flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-3 font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:border-cyan-500/50 dark:hover:border-cyan-500/30 h-full max-h-min",
     onClick: p.onRandomRow
-  }, [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Aleatório"]);
+  }, [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Linha Aleatória"]);
 
   const randomAllBtn = el("button", {
     class: "group flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-3 font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:border-orange-500/50 dark:hover:border-orange-500/30 h-full max-h-min",
     onClick: p.onRandomAll
-  }, [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Surpresa Geral"]);
+  }, [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Tudo Aleatório"]);
 
   const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-4 items-end bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5" }, [
     el("div", { class: "w-full sm:flex-1" }, [
@@ -1015,14 +1015,14 @@ function renderPlayScreen(p: PlayScreenParams): Node {
 
   const headerContent = p.headerRight
     ? el("div", { class: "bg-black/5 dark:bg-black/20 p-2 sm:p-3 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-4 gap-2" }, [
-        el("span", { class: "text-[10px] sm:text-xs font-black uppercase tracking-wider muted", text: modeLabel }),
-        p.headerRight
-      ])
+      el("span", { class: "text-[10px] sm:text-xs font-black uppercase tracking-wider muted", text: modeLabel }),
+      p.headerRight
+    ])
     : el("div", { class: "bg-black/5 dark:bg-black/20 p-2 sm:p-3 border-b border-black/5 dark:border-white/5 flex items-center justify-center gap-2" }, [
-        el("span", { class: "text-[10px] sm:text-xs font-black uppercase tracking-wider muted", text: modeLabel }),
-        el("span", { class: "text-[10px] opacity-30" }, ["•"]),
-        el("span", { class: modeAccentColor, text: modeAccent })
-      ]);
+      el("span", { class: "text-[10px] sm:text-xs font-black uppercase tracking-wider muted", text: modeLabel }),
+      el("span", { class: "text-[10px] opacity-30" }, ["•"]),
+      el("span", { class: modeAccentColor, text: modeAccent })
+    ]);
 
   const mainCard = el("div", { class: "flex flex-col gap-0 rounded-2xl bg-panel border-black/10 dark:border-white/10 overflow-hidden shadow-xl" }, [
     headerContent,
