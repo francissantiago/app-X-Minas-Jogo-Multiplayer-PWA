@@ -1,104 +1,151 @@
 # X & Minas — Jogo Multiplayer (PWA)
 
-Jogo de 8×8 (colunas **A–H** e linhas **1–8**) com 2 jogadores, **offline**, **LAN** e **online**.  
-Objetivo: **encontrar o “X” de cada linha**, em ordem, até encontrar o último “X” na **linha 8**.
+Jogo de estratégia para 2 jogadores com **tabuleiro dinâmico** (colunas **A–H** e até **20 linhas**).  
+Modos: **offline** (mesmo dispositivo), **LAN** (rede local) e **online** (WebSocket).
+
+![Menu Principal](screenshots/01-menu.png)
+
+## Screenshots
+Acesse as imagens em [screenshots/](screenshots/)
+
+## Características
+
+- **Configuração dinâmica**: defina linhas (2-20), minas por linha e dano por mina
+- **Pontos de vida calculados**: automaticamente baseado na configuração (~60% de sobrevivência)
+- **Lobbies separados**: interface padronizada para modo local e online
+- **Nome persistente**: salvo no localStorage para todas as partidas
+- **PWA**: instale no celular/PC e jogue offline ou online
+- **Design moderno**: Tailwind CSS v4 com tema claro/escuro
 
 ## Regras
 
-- **Setup secreto:** antes de começar, cada jogador configura, para o **oponente**, em **cada linha**:
-  - **3 minas** (colunas) → ao oponente escolher, perde pontos
-  - **1 X** (coluna) → ao oponente escolher, **avança para a próxima linha**
-- **Turnos alternados:** em seu turno, você escolhe **uma coluna** na **sua linha atual**.
-  - Se achar **X**: avança 1 linha
-  - Se cair em **mina**: perde **1 ponto** (configurável via `MINE_DAMAGE`)
-  - Se não achar nada: permanece na mesma linha
-- Cada jogador começa com **20 pontos**. Se chegar a **0**, é eliminado.
-- Vence quem:
-  - encontra o **X da linha 8** primeiro, **ou**
-  - elimina o oponente (zera os pontos).
+### Objetivo
 
-## Rodar (LAN/online + PWA)
+**Encontrar o "X" de cada linha**, em ordem crescente, até chegar à última linha.
 
-1. Instale dependências:
-   ```bash
-   npm install
-   ```
-2. Gere o build (frontend + backend):
-   ```bash
-   npm run build
-   ```
-3. Inicie o servidor:
-   ```bash
-   npm start
-   ```
-4. Abra no navegador:
-   - No mesmo PC: `http://localhost:3000`
-   - **LAN:** `http://IP_DO_HOST:3000` (ex.: `http://192.168.0.10:3000`)
+### Fase de Preparação (Setup)
 
-> Dica: em celulares/PCs na LAN, use o IP do host. Pode ser necessário liberar a porta 3000 no firewall.
+Antes da partida começar, cada jogador configura **secretamente** as armadilhas para o oponente:
 
-### Online (internet)
+- **Minas**: quantidade configurável por linha (padrão: 3)
+- **X**: 1 atalho por linha → ao oponente encontrar, avança para próxima linha
 
-Hospede o projeto (Node.js) em qualquer VPS/serviço que rode `node server.js` e exponha a porta HTTP.  
-Os jogadores acessam a mesma URL pública e entram no mesmo código de sala.
+> Dica: use **"Tudo Aleatório"** para gerar posições automaticamente.
 
-**Importante (pareamento):** um jogador deve **criar a sala** e compartilhar o **código**; o outro deve **entrar com o mesmo código**.  
-Se preferir, digite um código (ex.: `SALA01`) e use **“Criar com código”** no primeiro dispositivo, e **“Entrar na sala”** no segundo.
+### Durante a Partida
 
-## GitHub Pages (CI/CD)
+- **Turnos alternados**: escolha uma coluna na sua linha atual
+- **Se achar X**: avança 1 linha automaticamente
+- **Se cair em mina**: perde pontos de vida (dano configurável, máx. -5)
+- **Se não achar nada**: permanece na mesma linha
 
-Este repositório possui um workflow de **GitHub Actions** que publica o **frontend** no **GitHub Pages** automaticamente.
+### Fim de Jogo
 
-- Workflow: `.github/workflows/deploy-pages.yml`
-- Comando de build do Pages: `npm run build:pages`
+Vence quem:
 
-> Observação: o GitHub Pages hospeda apenas arquivos estáticos.  
-> O modo **Offline** funciona normalmente, mas o modo **Online/LAN** (WebSocket) precisa de um servidor Node.js rodando em outro lugar (VPS, Render, Fly.io, etc.).
+- Encontra o **X da última linha** primeiro, **ou**
+- Elimina o oponente (zera os pontos de vida)
 
-## Modo offline (sem servidor)
+## Como Jogar
 
-Ao abrir o jogo, escolha **“Jogar offline (local)”**.  
-Esse modo é “hotseat” (2 jogadores no mesmo dispositivo).
+### Modo Offline (mesmo dispositivo)
 
-## Desenvolvimento (opcional)
+1. Clique em **"🎮 Jogar Local"** no menu
+2. No Lobby Local, defina os nomes dos jogadores
+3. Configure a partida: linhas, minas/linha, dano/mina
+4. Clique **"Iniciar Partida"**
+5. Cada jogador configura as armadilhas do oponente (fase de setup)
+6. A partida começa automaticamente
 
-Para desenvolver com recarregamento automático:
+### Modo Online/LAN
+
+1. Clique em **"🌐 Multiplayer"** no menu
+2. No Lobby Online, defina seu nome
+3. Configure a partida (anfitrião define as regras)
+4. **Criar sala**: gere um código e compartilhe com o amigo
+5. **Entrar em sala**: digite o código recebido
+6. Ambos configuram as armadilhas
+7. A partida inicia quando ambos terminarem o setup
+
+> **LAN**: use o IP da máquina host (ex: `http://192.168.0.10:3000`)
+
+## Rodar Localmente
+
+### Produção (LAN/Online)
 
 ```bash
+npm install
+npm run build
+npm start
+```
+
+Acesse: `http://localhost:3000`
+
+### Desenvolvimento (hot reload)
+
+```bash
+npm install
 npm run dev
 ```
 
-Isso sobe:
+- Frontend: `http://localhost:5173`
+- Backend WebSocket: `http://localhost:3000`
 
-- Vite em `http://localhost:5173` (frontend)
-- Servidor WS em `http://localhost:3000` (backend)
+> Para testar em outro dispositivo na LAN: `http://IP_DO_HOST:5173`
 
-> Para testar em outro dispositivo na mesma rede (LAN), use `http://IP_DO_HOST:5173` (frontend) ou rode o build e use `http://IP_DO_HOST:3000` (produção).
+## GitHub Pages
 
-## Tailwind CSS 4.x
+O frontend pode ser hospedado no GitHub Pages:
 
-O Tailwind já está configurado via plugin do Vite (`@tailwindcss/vite`).
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Comando: `npm run build:pages`
 
-- Arquivo: `src/styles.css` (contém `@import "tailwindcss";`)
-- Config (opcional): `tailwind.config.ts`
+> ⚠️ O modo **Offline** funciona completamente no GitHub Pages.  
+> O modo **Online** requer um servidor Node.js rodando separadamente (VPS, Render, Fly.io, etc.).
 
-### Interface modernizada
+## Configurações da Partida
 
-- Fonte principal: **Inter**
-- Fonte de destaque (títulos): **Space Grotesk**
-- Componentes (cards, botões, inputs, grid) estilizados com **Tailwind v4** via `@apply` em `src/styles.css`
+No lobby (local ou online), você pode configurar:
+
+| Opção       | Padrão | Mínimo | Máximo         |
+| ----------- | ------ | ------ | -------------- |
+| Linhas      | 8      | 2      | 20             |
+| Minas/Linha | 3      | 1      | Colunas-1 (7)  |
+| Dano/Mina   | 1      | 1      | 5              |
+
+**Cálculo de HP**: `max(10, ceil(linhas × minas × dano × 0.6))`
 
 ## Controles do Setup
 
-- Clique em uma célula para marcar/desmarcar **mina**.
-- Para definir o **X**:
-  - PC: clique com botão direito na célula, **ou**
-  - use os botões “Definir X” abaixo da linha.
-- Alternativa: use **Aleatório (linha)** ou **Aleatório (tudo)** para gerar posições automaticamente.
+| Ação              | PC                       | Mobile                |
+| ----------------- | ------------------------ | --------------------- |
+| Marcar mina       | Clique esquerdo          | Toque                 |
+| Definir X         | Clique direito ou botões | Toque longo ou botões |
+| Aleatório (linha) | Botão 🎲                 | Botão 🎲              |
+| Aleatório (tudo)  | Botão 🎲                 | Botão 🎲              |
 
-## Configurações
+## Tecnologias
 
-- Dano da mina:
-  ```bash
-  MINE_DAMAGE=2 npm start
-  ```
+- **Frontend**: TypeScript + Vite + Tailwind CSS v4
+- **Backend**: Node.js + WebSocket (ws)
+- **Estilos**: Tailwind com `@theme` e `@apply`
+- **Fontes**: Inter + Space Grotesk (Google Fonts)
+- **PWA**: Manifest + Service Worker
+
+## Estrutura do Projeto
+
+```
+mina-web/
+├── src/
+│   ├── app.ts          # Lógica do jogo (cliente)
+│   ├── styles.css      # Tailwind v4 + custom styles
+│   └── sw.ts           # Service Worker
+├── server.ts           # Servidor WebSocket
+├── index.html          # Entry point
+├── screenshots/        # Screenshots para README/PWA
+└── dist/               # Build de produção
+```
+
+## Licença
+
+Desenvolvido por [Francis Santiago](https://francis-santiago.lightburden.net/)
