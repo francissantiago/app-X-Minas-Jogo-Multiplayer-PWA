@@ -1,9 +1,22 @@
 import "./styles.css";
 
 // Config do tabuleiro
-const ROWS = 8;
-const MINES_PER_ROW = 3;
-const COLS = "ABCDEFGH".split("") as Array<string>;
+const MAX_ROWS = 20;
+const ALL_COLS = "ABCDEFGH".split("") as Array<string>;
+
+function calcHealth(config: GameConfig): number {
+  // Permite sobreviver a ~60% das minas totais, com mínimo de 10
+  const totalMines = config.rows * config.minesPerRow;
+  return Math.max(10, Math.ceil(totalMines * config.mineDamage * 0.6));
+}
+
+type GameConfig = { rows: number; minesPerRow: number; mineDamage: number };
+
+const DEFAULT_CONFIG: GameConfig = { rows: 8, minesPerRow: 3, mineDamage: 1 };
+
+function colsForConfig(config: GameConfig): string[] {
+  return ALL_COLS.slice(0, config.rows);
+}
 
 // ---------------------------
 // Tema (dark/light)
@@ -85,6 +98,7 @@ type Screen =
 type ServerState = {
   roomCode: string;
   phase: "waiting" | "setup" | "play" | "finished";
+  config: GameConfig;
   turnPlayerId: string | null;
   winnerId: string | null;
   you: {
@@ -124,7 +138,7 @@ const appState: {
   name: string;
   name2: string;
   roomCodeInput: string;
-  mineDamage: number;
+  pendingConfig: GameConfig;
   lastExplosion: { row: number; col: string; slot: number; at: number } | null;
 } = {
   screen: "menu",
@@ -138,7 +152,7 @@ const appState: {
   name: "",
   name2: "",
   roomCodeInput: "",
-  mineDamage: 1,
+  pendingConfig: { ...DEFAULT_CONFIG },
   lastExplosion: null
 };
 
@@ -209,8 +223,8 @@ function cloneTraps(traps: TrapRow[]): TrapRow[] {
   return traps.map((r) => ({ row: r.row, x: r.x, mines: [...r.mines] }));
 }
 
-function newEmptyTraps(): TrapRow[] {
-  return Array.from({ length: ROWS }, (_, i) => ({ row: i + 1, x: null, mines: [] }));
+function newEmptyTraps(rows: number): TrapRow[] {
+  return Array.from({ length: rows }, (_, i) => ({ row: i + 1, x: null as string | null, mines: [] as string[] }));
 }
 
 function randInt(max: number) {
@@ -228,43 +242,44 @@ function pickDistinct<T>(items: T[], count: number): T[] {
   return out;
 }
 
-function randomTrapsAllRows(): TrapRow[] {
-  // Para cada linha: 1 X + MINES_PER_ROW minas (todos distintos)
-  return Array.from({ length: ROWS }, (_, i) => {
+function randomTrapsAllRows(config: GameConfig): TrapRow[] {
+  const cols = colsForConfig(config);
+  return Array.from({ length: config.rows }, (_, i) => {
     const row = i + 1;
-    const picks = pickDistinct(COLS, MINES_PER_ROW + 1);
+    const picks = pickDistinct(cols, config.minesPerRow + 1);
     const x = picks[0] ?? "A";
-    const mines = picks.slice(1, MINES_PER_ROW + 1);
+    const mines = picks.slice(1, config.minesPerRow + 1);
     return { row, x, mines };
   });
 }
 
-function randomizeDraftInPlace(draft: TrapRow[]) {
-  const rnd = randomTrapsAllRows();
-  for (let i = 0; i < ROWS; i++) {
+function randomizeDraftInPlace(draft: TrapRow[], config: GameConfig) {
+  const rnd = randomTrapsAllRows(config);
+  for (let i = 0; i < config.rows; i++) {
     draft[i].x = rnd[i].x;
     draft[i].mines = [...rnd[i].mines];
   }
 }
 
-function randomizeDraftRowInPlace(draft: TrapRow[], row: number) {
-  const picks = pickDistinct(COLS, MINES_PER_ROW + 1);
+function randomizeDraftRowInPlace(draft: TrapRow[], row: number, config: GameConfig) {
+  const cols = colsForConfig(config);
+  const picks = pickDistinct(cols, config.minesPerRow + 1);
   const x = picks[0] ?? "A";
-  const mines = picks.slice(1, MINES_PER_ROW + 1);
+  const mines = picks.slice(1, config.minesPerRow + 1);
   const r = draft[row - 1];
   if (!r) return;
   r.x = x;
   r.mines = [...mines];
 }
 
-function validateTraps(traps: TrapRow[]): string | null {
-  if (!Array.isArray(traps) || traps.length !== ROWS) return `É necessário configurar as ${ROWS} linhas.`;
+function validateTraps(traps: TrapRow[], config: GameConfig): string | null {
+  if (!Array.isArray(traps) || traps.length !== config.rows) return `É necessário configurar as ${config.rows} linhas.`;
   for (const r of traps) {
     if (!r.x) return `Faltou definir o X na linha ${r.row}.`;
-    if (!Array.isArray(r.mines) || r.mines.length !== MINES_PER_ROW)
-      return `Faltou definir ${MINES_PER_ROW} minas na linha ${r.row}.`;
+    if (!Array.isArray(r.mines) || r.mines.length !== config.minesPerRow)
+      return `Faltou definir ${config.minesPerRow} minas na linha ${r.row}.`;
     const s = new Set(r.mines);
-    if (s.size !== MINES_PER_ROW) return `Minas repetidas na linha ${r.row}.`;
+    if (s.size !== config.minesPerRow) return `Minas repetidas na linha ${r.row}.`;
     if (s.has(r.x)) return `O X não pode coincidir com mina na linha ${r.row}.`;
   }
   return null;
@@ -282,8 +297,8 @@ type OfflinePlayer = {
 };
 
 type OfflineGame = {
+  config: GameConfig;
   phase: "setup" | "play" | "finished";
-  mineDamage: number;
   players: [OfflinePlayer, OfflinePlayer];
   trapsByTargetIndex: Record<number, TrapRow[] | null>;
   currentTurnIndex: 0 | 1;
@@ -293,31 +308,31 @@ type OfflineGame = {
   setupRow: number;
 };
 
-function createOfflineGame(): OfflineGame {
+function createOfflineGame(config: GameConfig): OfflineGame {
   return {
+    config,
     phase: "setup",
-    mineDamage: 1,
     players: [
       {
         name: "Jogador 1",
-        points: 20,
+        points: calcHealth(config),
         currentRow: 1,
-        attemptedByRow: Array.from({ length: ROWS }, () => new Set()),
-        mineHitsByRow: Array.from({ length: ROWS }, () => new Set())
+        attemptedByRow: Array.from({ length: config.rows }, () => new Set()),
+        mineHitsByRow: Array.from({ length: config.rows }, () => new Set())
       },
       {
         name: "Jogador 2",
-        points: 20,
+        points: calcHealth(config),
         currentRow: 1,
-        attemptedByRow: Array.from({ length: ROWS }, () => new Set()),
-        mineHitsByRow: Array.from({ length: ROWS }, () => new Set())
+        attemptedByRow: Array.from({ length: config.rows }, () => new Set()),
+        mineHitsByRow: Array.from({ length: config.rows }, () => new Set())
       }
     ],
     trapsByTargetIndex: { 0: null, 1: null },
     currentTurnIndex: 0,
     winnerIndex: null,
     setupStep: 0,
-    setupDraft: newEmptyTraps(),
+    setupDraft: newEmptyTraps(config.rows),
     setupRow: 1
   };
 }
@@ -329,7 +344,7 @@ function offlineOpponentIndex(i: 0 | 1): 0 | 1 {
 function offlineSubmitSetup() {
   const g = appState.offline;
   if (!g) return;
-  const err = validateTraps(g.setupDraft);
+  const err = validateTraps(g.setupDraft, g.config);
   if (err) return setLog(err);
 
   const target: 0 | 1 = g.setupStep === 0 ? 1 : 0;
@@ -337,7 +352,7 @@ function offlineSubmitSetup() {
 
   if (g.setupStep === 0) {
     g.setupStep = 1;
-    g.setupDraft = newEmptyTraps();
+    g.setupDraft = newEmptyTraps(g.config.rows);
     g.setupRow = 1;
     setLog("Setup salvo. Agora o Jogador 2 configura as armadilhas do Jogador 1.");
     return render();
@@ -357,7 +372,7 @@ function offlineMove(col: string) {
   const pi = g.currentTurnIndex;
   const p = g.players[pi];
   const row = p.currentRow;
-  if (row < 1 || row > ROWS) return;
+  if (row < 1 || row > g.config.rows) return;
 
   const attempted = p.attemptedByRow[row - 1];
   if (attempted.has(col)) return setLog("Você já tentou essa coluna nesta linha.");
@@ -370,7 +385,7 @@ function offlineMove(col: string) {
 
   if (col === rowTrap.x) {
     p.currentRow++;
-    if (p.currentRow === ROWS + 1) {
+    if (p.currentRow === g.config.rows + 1) {
       g.phase = "finished";
       g.winnerIndex = pi;
       appState.screen = "offline_end";
@@ -379,7 +394,7 @@ function offlineMove(col: string) {
     }
     setLog(`${p.name} encontrou o X na linha ${row} e avançou para a linha ${p.currentRow}.`);
   } else if (mines.has(col)) {
-    p.points = Math.max(0, p.points - g.mineDamage);
+    p.points = Math.max(0, p.points - g.config.mineDamage);
     p.mineHitsByRow[row - 1].add(col);
     triggerExplosion(pi, row, col);
     if (p.points <= 0) {
@@ -389,7 +404,7 @@ function offlineMove(col: string) {
       setLog(`${p.name} caiu em uma mina e ficou sem pontos. ${g.players[g.winnerIndex].name} venceu!`);
       return;
     }
-    setLog(`${p.name} caiu em uma mina (-${g.mineDamage}). Pontos agora: ${p.points}.`);
+    setLog(`${p.name} caiu em uma mina (-${g.config.mineDamage}). Pontos agora: ${p.points}.`);
   } else {
     setLog(`${p.name} não encontrou nada nessa célula.`);
   }
@@ -446,7 +461,7 @@ function connectOnline() {
     }
 
     if (msg.type === "connected") {
-      appState.mineDamage = msg.mineDamage ?? 1;
+      if (msg.defaultConfig) appState.pendingConfig = { ...msg.defaultConfig };
       return;
     }
 
@@ -517,19 +532,28 @@ function syncScreenWithServer() {
   const s = appState.serverState;
   if (!s) return;
   if (s.phase === "waiting" || s.phase === "setup") appState.screen = "online_lobby";
-  if (s.phase === "setup") appState.screen = "online_setup";
+  if (s.phase === "setup") {
+    if (appState.screen !== "online_setup") resetOnlineSetup(s.config ?? appState.pendingConfig);
+    appState.screen = "online_setup";
+  }
   if (s.phase === "play") appState.screen = "online_play";
   if (s.phase === "finished") appState.screen = "online_end";
 }
 
 // online setup draft (client-only)
 const onlineSetup: { trapsDraft: TrapRow[]; row: number } = {
-  trapsDraft: newEmptyTraps(),
+  trapsDraft: newEmptyTraps(DEFAULT_CONFIG.rows),
   row: 1
 };
 
+function resetOnlineSetup(config: GameConfig) {
+  onlineSetup.trapsDraft = newEmptyTraps(config.rows);
+  onlineSetup.row = 1;
+}
+
 function onlineSubmitSetup() {
-  const err = validateTraps(onlineSetup.trapsDraft);
+  const config = appState.serverState?.config ?? appState.pendingConfig;
+  const err = validateTraps(onlineSetup.trapsDraft, config);
   if (err) return setLog(err);
   wsSend({ type: "setup_submit", trapsForOpponent: cloneTraps(onlineSetup.trapsDraft) });
   setLog("Setup enviado. Aguardando oponente...");
@@ -542,9 +566,9 @@ function onlineMove(col: string) {
 // ---------------------------
 // UI parts
 // ---------------------------
-function progressList(currentRow: number) {
+function progressList(currentRow: number, config: GameConfig) {
   const items: Node[] = [];
-  for (let r = 1; r <= ROWS; r++) {
+  for (let r = 1; r <= config.rows; r++) {
     const status = currentRow > r ? "ok" : currentRow === r ? "warn" : "";
     const label = currentRow > r ? "X encontrado" : currentRow === r ? "Linha atual" : "Pendente";
     items.push(el("div", { class: `tag ${status}`.trim(), text: `${r}: ${label}` }));
@@ -556,10 +580,12 @@ function setupRowEditor(
   trapsDraft: TrapRow[],
   row: number,
   onToggleMine: (col: string) => void,
-  onSetX: (col: string) => void
+  onSetX: (col: string) => void,
+  config: GameConfig
 ) {
+  const cols = colsForConfig(config);
   const r = trapsDraft[row - 1];
-  const minesLeft = MINES_PER_ROW - r.mines.length;
+  const minesLeft = config.minesPerRow - r.mines.length;
   const xSet = !!r.x;
 
   const header = el("div", { class: "flex flex-wrap gap-2 justify-center" }, [
@@ -570,11 +596,11 @@ function setupRowEditor(
 
   const grid = el("div", { class: "board-grid" }, [
     el("div", { class: "cell header", text: "#" }),
-    ...COLS.map((c) => el("div", { class: "cell header", text: c }))
+    ...cols.map((c) => el("div", { class: "cell header", text: c }))
   ]);
 
   grid.appendChild(el("div", { class: "cell header", text: String(row) }));
-  for (const c of COLS) {
+  for (const c of cols) {
     const isMine = r.mines.includes(c);
     const isX = r.x === c;
     const label = isX ? "X" : isMine ? "•" : "";
@@ -599,7 +625,7 @@ function setupRowEditor(
   const xButtons = el("div", { class: "flex flex-col gap-2 mt-2 items-center" }, [
     el("span", { class: "text-sm font-semibold muted", text: "Definir o lugar do 'X':" }),
     el("div", { class: "flex flex-wrap gap-2 justify-center" }, [
-      ...COLS.map((c) =>
+      ...cols.map((c) =>
         el(
           "button",
           {
@@ -671,26 +697,28 @@ function board10x10Combined(opts: {
   attemptedByRowB: Array<Set<string>> | string[][];
   mineHitsByRowA: Array<Set<string>> | string[][];
   mineHitsByRowB: Array<Set<string>> | string[][];
-  slotA: number; // normalmente 0
-  slotB: number; // normalmente 1
-  activeSlot: number; // 0 ou 1
+  slotA: number;
+  slotB: number;
+  activeSlot: number;
   active: boolean;
-  activeRow: number | null; // linha clicável (ou null para não clicável)
+  activeRow: number | null;
   onPick?: (col: string) => void;
   explosion?: { row: number; col: string; slot: number } | null;
+  config: GameConfig;
 }) {
+  const cols = colsForConfig(opts.config);
   const grid = el("div", { class: "board-grid" }, [
     el("div", { class: "cell header", text: "#" }),
-    ...COLS.map((c) => el("div", { class: "cell header", text: c }))
+    ...cols.map((c) => el("div", { class: "cell header", text: c }))
   ]);
 
-  for (let row = 1; row <= ROWS; row++) {
+  for (let row = 1; row <= opts.config.rows; row++) {
     const isActiveRow = opts.activeRow === row;
     grid.appendChild(
       el("div", { class: `cell header ${isActiveRow ? "bg-white/10" : ""}`.trim(), text: String(row) })
     );
 
-    for (const col of COLS) {
+    for (const col of cols) {
       const triedA = boardHasAttempt(opts.attemptedByRowA, row, col);
       const triedB = boardHasAttempt(opts.attemptedByRowB, row, col);
       const mineA = boardHasAttempt(opts.mineHitsByRowA, row, col);
@@ -789,6 +817,24 @@ function renderMenu() {
       ])
     ]),
 
+    el("div", { class: "flex flex-col gap-3 p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/5" }, [
+      el("span", { class: "text-[10px] font-black uppercase tracking-widest opacity-70 text-center" }, ["Configuração da Partida"]),
+      el("div", { class: "grid gap-3 grid-cols-3" }, [
+        el("div", { class: "flex flex-col gap-1" }, [
+          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Linhas" }),
+          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow >= v) appState.pendingConfig.minesPerRow = v - 1; render(); } })
+        ]),
+        el("div", { class: "flex flex-col gap-1" }, [
+          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Minas/Linha" }),
+          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(appState.pendingConfig.rows - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(appState.pendingConfig.rows - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
+        ]),
+        el("div", { class: "flex flex-col gap-1" }, [
+          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
+          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "20", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(20, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
+        ])
+      ])
+    ]),
+
     el("div", { class: "flex flex-col gap-4 sm:flex-row mt-2" }, [
       offlineBtn,
       onlineBtn
@@ -812,7 +858,7 @@ function renderMenu() {
       el("div", { class: "h-px w-12 sm:w-32 bg-current" })
     ]),
     el("div", { class: "grid gap-5 md:grid-cols-3" }, [
-      ruleCard("💣", "Plante Armadilhas", `Oculte ${MINES_PER_ROW} minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
+      ruleCard("💣", "Plante Armadilhas", `Oculte ${appState.pendingConfig.minesPerRow} minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
       ruleCard("🏃", "Ache o Atalho", "Adivinhe onde está o X para descer de linha sem tomar dano.", "border-cyan-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.4)]"),
       ruleCard("🏆", "Sobreviva", "Chegue no topo ou faça o adversário perder seus pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
     ])
@@ -825,7 +871,8 @@ function renderMenu() {
 }
 
 function startOffline() {
-  appState.offline = createOfflineGame();
+  const config = { ...appState.pendingConfig };
+  appState.offline = createOfflineGame(config);
   const n = (appState.name || "").trim();
   if (n) appState.offline.players[0].name = n;
   const n2 = (appState.name2 || "").trim();
@@ -836,6 +883,7 @@ function startOffline() {
 
 // ─── Shared Layout: Fase de Preparação ─────────────────────────────────────
 interface SetupScreenParams {
+  config: GameConfig;
   draft: Array<{ row: number; mines: string[]; x: string }>;
   currentRow: number;
   onToggleMine: (col: string) => void;
@@ -862,7 +910,7 @@ function renderSetupScreen(p: SetupScreenParams): Node {
       class: "input w-full flex-1 cursor-pointer font-semibold",
       onChange: (e: Event) => p.onRowChange(Number((e.target as HTMLSelectElement).value))
     },
-    Array.from({ length: ROWS }, (_, i) => el("option", { value: String(i + 1), text: `Linha ${i + 1}` }))
+    Array.from({ length: p.config.rows }, (_, i) => el("option", { value: String(i + 1), text: `Linha ${i + 1}` }))
   );
   (rowSel as HTMLSelectElement).value = String(p.currentRow);
 
@@ -884,7 +932,7 @@ function renderSetupScreen(p: SetupScreenParams): Node {
     el("div", { class: "flex flex-row gap-2 w-full sm:w-auto flex-3" }, [randomRowBtn, randomAllBtn])
   ]);
 
-  const rowEditor = setupRowEditor(p.draft, p.currentRow, p.onToggleMine, p.onSetX);
+  const rowEditor = setupRowEditor(p.draft, p.currentRow, p.onToggleMine, p.onSetX, p.config);
 
   const headerBadgesEl = p.headerBadges && p.headerBadges.length > 0
     ? el("div", { class: "flex flex-wrap items-center gap-2 mb-3 justify-center" }, p.headerBadges)
@@ -909,13 +957,13 @@ function renderSetupScreen(p: SetupScreenParams): Node {
   const checklistCard = el("div", { class: "flex flex-col rounded-2xl bg-panel p-4 sm:p-6 border-black/10 dark:border-white/10 shadow-lg" }, [
     el("div", { class: "flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 gap-2" }, [
       el("h3", { class: "text-sm font-black uppercase tracking-widest muted", text: p.checklistTitle }),
-      ...(p.checklistExtra ?? [el("span", { class: "text-[10px] font-bold bg-black/5 dark:bg-black/40 px-2 py-1 rounded border border-black/10 dark:border-white/5 text-slate-600 dark:text-slate-400 uppercase tracking-widest", text: `Objetivo: 1X e ${MINES_PER_ROW} Minas / Linha` })])
+      ...(p.checklistExtra ?? [el("span", { class: "text-[10px] font-bold bg-black/5 dark:bg-black/40 px-2 py-1 rounded border border-black/10 dark:border-white/5 text-slate-600 dark:text-slate-400 uppercase tracking-widest", text: `Objetivo: 1X e ${p.config.minesPerRow} Minas / Linha` })])
     ]),
     el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 mb-5" }),
     el("div", { class: "grid gap-3 grid-cols-2 sm:grid-cols-4" }, [
       ...p.draft.map((r) => {
         const xOk = !!r.x;
-        const mOk = r.mines.length === MINES_PER_ROW;
+        const mOk = r.mines.length === p.config.minesPerRow;
         const allOk = xOk && mOk;
         return el("div", { class: `flex flex-col justify-between gap-3 p-3 rounded-xl border transition-all ${allOk ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.1)]" : "bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/5"}` }, [
           el("div", { class: "flex items-center justify-between" }, [
@@ -924,7 +972,7 @@ function renderSetupScreen(p: SetupScreenParams): Node {
           ]),
           el("div", { class: "flex flex-col gap-1" }, [
             el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${xOk ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-500/30"}`, text: xOk ? `Atalho: ${r.x}` : "Sem Atalho" }),
-            el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${mOk ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30"}`, text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
+            el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${mOk ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30"}`, text: `Minas: ${r.mines.length}/${p.config.minesPerRow}` })
           ])
         ]);
       })
@@ -946,10 +994,11 @@ interface PlayerInfo {
 }
 
 interface PlayScreenParams {
+  config: GameConfig;
   mode: "local" | "online";
-  headerRight?: Node;  // badge extra no cabeçalho (ex: "Sala: XXXX")
-  activeSlot: number;  // slot do jogador "ativo" / da vez
-  isActive: boolean;   // é a vez de activeSlot jogar?
+  headerRight?: Node;
+  activeSlot: number;
+  isActive: boolean;
   player0: PlayerInfo;
   player1: PlayerInfo;
   board: Node;
@@ -990,7 +1039,7 @@ function renderPlayScreen(p: PlayScreenParams): Node {
       el("span", { class: `text-sm sm:text-lg font-black drop-shadow-md ${p.isActive ? slotColor(p.activeSlot) : "opacity-60"}` }, [turnName])
     ]),
     el("div", { class: "flex items-center gap-2 mt-2 sm:mt-0 bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/5 px-3 py-1 rounded-lg" }, [
-      el("span", { class: `text-[10px] sm:text-xs font-bold uppercase tracking-widest ${p.isActive ? slotColor(p.activeSlot) : "opacity-60"}`, text: `Ataque na Linha ${Math.min(ROWS, activePlayer.currentRow)}` })
+      el("span", { class: `text-[10px] sm:text-xs font-bold uppercase tracking-widest ${p.isActive ? slotColor(p.activeSlot) : "opacity-60"}`, text: `Ataque na Linha ${Math.min(p.config.rows, activePlayer.currentRow)}` })
     ])
   ]);
 
@@ -999,7 +1048,7 @@ function renderPlayScreen(p: PlayScreenParams): Node {
       el("div", { class: `absolute left-0 top-0 h-full w-1 ${slotBar(pl.slot)}` }),
       el("div", { class: "flex flex-col pl-2" }, [
         el("span", { class: "text-[10px] font-black uppercase tracking-widest truncate max-w-[80px] sm:max-w-full muted", text: pl.name }),
-        el("span", { class: `text-[9px] font-bold uppercase tracking-widest opacity-60 ${slotColor(pl.slot)}`, text: `Linha: ${Math.min(ROWS, pl.currentRow)}` })
+        el("span", { class: `text-[9px] font-bold uppercase tracking-widest opacity-60 ${slotColor(pl.slot)}`, text: `Linha: ${Math.min(p.config.rows, pl.currentRow)}` })
       ]),
       el("div", { class: `flex items-baseline gap-1 text-xl sm:text-2xl font-black ${slotColor(pl.slot)} pr-1` }, [
         el("span", { text: String(pl.points) }),
@@ -1082,6 +1131,7 @@ function renderOfflineSetup() {
   }, ["Voltar"]);
 
   return renderSetupScreen({
+    config: g.config,
     draft: g.setupDraft,
     currentRow: g.setupRow,
     onToggleMine: (col) => {
@@ -1089,7 +1139,7 @@ function renderOfflineSetup() {
       const idx = r.mines.indexOf(col);
       if (idx >= 0) r.mines.splice(idx, 1);
       else {
-        if (r.mines.length >= MINES_PER_ROW) return setLog(`Já existem ${MINES_PER_ROW} minas na linha ${r.row}. Remova uma para trocar.`);
+        if (r.mines.length >= g.config.minesPerRow) return setLog(`Já existem ${g.config.minesPerRow} minas na linha ${r.row}. Remova uma para trocar.`);
         if (r.x === col) return setLog("Essa coluna está marcada como X. Mude o X antes de adicionar mina.");
         r.mines.push(col);
       }
@@ -1101,8 +1151,8 @@ function renderOfflineSetup() {
       r.x = col; render();
     },
     onRowChange: (row) => { g.setupRow = row; render(); },
-    onRandomRow: () => { randomizeDraftRowInPlace(g.setupDraft, g.setupRow); setLog(`Linha ${g.setupRow} gerada aleatoriamente.`); render(); },
-    onRandomAll: () => { randomizeDraftInPlace(g.setupDraft); g.setupRow = 1; setLog("Todas as linhas foram geradas aleatoriamente."); render(); },
+    onRandomRow: () => { randomizeDraftRowInPlace(g.setupDraft, g.setupRow, g.config); setLog(`Linha ${g.setupRow} gerada aleatoriamente.`); render(); },
+    onRandomAll: () => { randomizeDraftInPlace(g.setupDraft, g.config); g.setupRow = 1; setLog("Todas as linhas foram geradas aleatoriamente."); render(); },
     submitBtn,
     secondaryBtn,
     title: "Fase de Preparação",
@@ -1123,17 +1173,13 @@ function renderOfflinePlay() {
     mineHitsByRowB: g.players[1].mineHitsByRow,
     slotA: 0, slotB: 1, activeSlot: pi, active: true,
     activeRow: p.currentRow, onPick: offlineMove,
-    explosion: appState.lastExplosion
+    explosion: appState.lastExplosion,
+    config: g.config
   });
 
   const primaryBtn = el("button", {
     class: "flex flex-1 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 p-4 font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-400 transition-all hover:shadow-[0_0_20px_rgba(52,211,153,0.3)]",
-    onClick: () => {
-      appState.offline = createOfflineGame();
-      const n = (appState.name || "").trim(); if (n) appState.offline.players[0].name = n;
-      const n2 = (appState.name2 || "").trim(); appState.offline.players[1].name = n2 || "Jogador 2";
-      appState.screen = "offline_setup"; setLog("Novo jogo offline.");
-    }
+    onClick: () => startOffline()
   }, ["Novo Jogo"]);
 
   const secondaryBtn = el("button", {
@@ -1142,6 +1188,7 @@ function renderOfflinePlay() {
   }, ["Sair da Partida"]);
 
   return renderPlayScreen({
+    config: g.config,
     mode: "local",
     activeSlot: pi,
     isActive: true,
@@ -1150,8 +1197,8 @@ function renderOfflinePlay() {
     board,
     primaryBtn,
     secondaryBtn,
-    progressPlayer0: progressList(g.players[0].currentRow),
-    progressPlayer1: progressList(g.players[1].currentRow),
+    progressPlayer0: progressList(g.players[0].currentRow, g.config),
+    progressPlayer1: progressList(g.players[1].currentRow, g.config),
   });
 }
 
@@ -1210,9 +1257,27 @@ function renderOnlineLobby() {
     [appState.wsStatus === "connecting" ? "CONECTANDO..." : connected ? "CONECTADO" : "CONECTAR"]
   );
 
+  const configSection = el("div", { class: "flex flex-col items-center gap-3 mt-6 w-full max-w-sm mx-auto" }, [
+    el("span", { class: "text-xs font-black uppercase tracking-widest opacity-70" }, ["Configuração da Partida"]),
+    el("div", { class: "grid gap-3 grid-cols-3 w-full" }, [
+      el("div", { class: "flex flex-col gap-1" }, [
+        el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Linhas" }),
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow >= v) appState.pendingConfig.minesPerRow = v - 1; render(); } })
+      ]),
+      el("div", { class: "flex flex-col gap-1" }, [
+        el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Minas/Linha" }),
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(appState.pendingConfig.rows - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(appState.pendingConfig.rows - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
+      ]),
+      el("div", { class: "flex flex-col gap-1" }, [
+        el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "20", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(20, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
+      ])
+    ])
+  ]);
+
   const createBtn = el("button", {
     class: "flex items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 p-4 font-black tracking-widest uppercase text-cyan-600 dark:text-cyan-400 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.3)] w-full h-full min-h-[56px]",
-    onClick: () => wsSend({ type: "create_room" }), disabled: appState.wsStatus === "connecting"
+    onClick: () => wsSend({ type: "create_room", config: appState.pendingConfig }), disabled: appState.wsStatus === "connecting"
   }, ["Criar Nova Sala"]);
 
   const roomInput = el("input", {
@@ -1317,10 +1382,11 @@ function renderOnlineLobby() {
     ]),
     el("div", { class: "h-px w-full bg-black/5 dark:bg-white/5 my-4" }),
     nameSection,
+    configSection,
     actionsSection,
     ...(s?.roomCode ? [roomInfo] : []),
     el("div", { class: "h-px w-full bg-black/5 dark:bg-white/5 my-8" }),
-    el("div", { class: "text-[10px] font-bold uppercase tracking-widest opacity-40 text-center" }, [`Dano da mina nesta partida (servidor): -${appState.mineDamage} ponto(s)`])
+    el("div", { class: "text-[10px] font-bold uppercase tracking-widest opacity-40 text-center" }, [`Config: ${appState.pendingConfig.rows} linhas | ${appState.pendingConfig.minesPerRow} minas/linha | -${appState.pendingConfig.mineDamage} dano/mina`])
   ]);
 
   const infoCard = el("div", { class: "flex flex-col sm:flex-row items-center gap-4 rounded-2xl bg-panel border-l-4 border-cyan-500/50 p-5 sm:p-6 w-full mx-auto shadow-lg mt-5" }, [
@@ -1349,9 +1415,10 @@ function renderOnlineSetup() {
     disabled: you.setupSubmitted
   }, [you.setupSubmitted ? "Setup Enviado" : "Enviar Setup"]);
 
+  const config = s?.config ?? appState.pendingConfig;
   const secondaryBtn = el("button", {
     class: "flex flex-1 items-center justify-center rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4 font-bold tracking-widest uppercase text-slate-600 dark:text-slate-300 transition-all hover:bg-black/10 dark:hover:bg-white/10 w-full sm:w-auto",
-    onClick: () => { onlineSetup.trapsDraft = newEmptyTraps(); onlineSetup.row = 1; setLog("Setup local resetado."); render(); }
+    onClick: () => { resetOnlineSetup(config); setLog("Setup local resetado."); render(); }
   }, ["Resetar"]);
 
   const headerBadges = [
@@ -1368,6 +1435,7 @@ function renderOnlineSetup() {
   ];
 
   return renderSetupScreen({
+    config,
     draft: onlineSetup.trapsDraft,
     currentRow: onlineSetup.row,
     onToggleMine: (col) => {
@@ -1375,7 +1443,7 @@ function renderOnlineSetup() {
       const idx = r.mines.indexOf(col);
       if (idx >= 0) r.mines.splice(idx, 1);
       else {
-        if (r.mines.length >= MINES_PER_ROW) return setLog(`Já existem ${MINES_PER_ROW} minas na linha ${r.row}. Remova uma para trocar.`);
+        if (r.mines.length >= config.minesPerRow) return setLog(`Já existem ${config.minesPerRow} minas na linha ${r.row}. Remova uma para trocar.`);
         if (r.x === col) return setLog("Essa coluna está marcada como X. Mude o X antes de adicionar mina.");
         r.mines.push(col);
       }
@@ -1387,8 +1455,8 @@ function renderOnlineSetup() {
       r.x = col; render();
     },
     onRowChange: (row) => { onlineSetup.row = row; render(); },
-    onRandomRow: () => { randomizeDraftRowInPlace(onlineSetup.trapsDraft, onlineSetup.row); setLog(`Linha ${onlineSetup.row} gerada aleatoriamente.`); render(); },
-    onRandomAll: () => { randomizeDraftInPlace(onlineSetup.trapsDraft); onlineSetup.row = 1; setLog("Todas as linhas foram geradas aleatoriamente."); render(); },
+    onRandomRow: () => { randomizeDraftRowInPlace(onlineSetup.trapsDraft, onlineSetup.row, config); setLog(`Linha ${onlineSetup.row} gerada aleatoriamente.`); render(); },
+    onRandomAll: () => { randomizeDraftInPlace(onlineSetup.trapsDraft, config); onlineSetup.row = 1; setLog("Todas as linhas foram geradas aleatoriamente."); render(); },
     submitBtn,
     secondaryBtn,
     headerBadges,
@@ -1413,13 +1481,15 @@ function renderOnlinePlay() {
   const mineA = aSlot === you.slot ? you.mineHitsByRow : opp.mineHitsByRow;
   const mineB = bSlot === you.slot ? you.mineHitsByRow : opp.mineHitsByRow;
 
+  const config = s.config ?? appState.pendingConfig;
   const board = board10x10Combined({
     attemptedByRowA: attemptedA, attemptedByRowB: attemptedB,
     mineHitsByRowA: mineA, mineHitsByRowB: mineB,
     slotA: aSlot, slotB: bSlot,
     activeSlot: you.slot, active: isYourTurn,
     activeRow: you.currentRow, onPick: onlineMove,
-    explosion: appState.lastExplosion
+    explosion: appState.lastExplosion,
+    config
   });
 
   const primaryBtn = el("button", {
@@ -1448,6 +1518,7 @@ function renderOnlinePlay() {
     : { name: you.name, slot: 1, points: you.points, currentRow: you.currentRow };
 
   return renderPlayScreen({
+    config,
     mode: "online",
     headerRight: roomBadge,
     activeSlot: you.slot,
@@ -1457,8 +1528,8 @@ function renderOnlinePlay() {
     board,
     primaryBtn,
     secondaryBtn,
-    progressPlayer0: progressList(p0.currentRow),
-    progressPlayer1: progressList(p1.currentRow),
+    progressPlayer0: progressList(p0.currentRow, config),
+    progressPlayer1: progressList(p1.currentRow, config),
   });
 }
 
@@ -1529,6 +1600,8 @@ function render() {
   }
 
   const logBox = el("div", { class: "log", text: appState.log || "Nenhuma atividade recente." });
+  const footerRows = document.getElementById("footer-rows");
+  if (footerRows) footerRows.textContent = String(appState.pendingConfig.rows);
   appEl.appendChild(screenEl);
   appEl.appendChild(el("div", { class: "w-full mx-auto mt-8 px-2" }, [
     el("div", { class: "flex items-center gap-2 mb-2 opacity-50" }, [
