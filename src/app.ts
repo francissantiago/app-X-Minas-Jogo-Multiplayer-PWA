@@ -37,7 +37,7 @@ function toggleTheme() {
 // ---------------------------
 if ("serviceWorker" in navigator) {
   const swUrl = `${import.meta.env.BASE_URL}sw.js`;
-  navigator.serviceWorker.register(swUrl).catch(() => {});
+  navigator.serviceWorker.register(swUrl).catch(() => { });
 }
 
 // Tipagem mínima (nem todo TS lib inclui isso)
@@ -58,7 +58,7 @@ window.addEventListener("beforeinstallprompt", (e: Event) => {
       btn.hidden = true;
       await deferredInstallPrompt?.prompt();
       deferredInstallPrompt = null;
-    } catch {}
+    } catch { }
   };
 });
 
@@ -641,15 +641,25 @@ function boardHasAttempt(attemptedByRow: Array<Set<string>> | string[][], row: n
 }
 
 function dot(slot: number) {
-  return dotNode(slot, { mine: false, explode: false });
+  return dotNode(slot, { mine: false, explode: false, inLegend: true });
 }
 
-function dotNode(slot: number, opts: { mine: boolean; explode: boolean }) {
+function dotNode(slot: number, opts: { mine: boolean; explode: boolean; shared?: boolean; inLegend?: boolean }) {
   const wrap = el("span", { class: `dot-wrap ${opts.mine ? "mine-hit" : ""}`.trim() });
+  
+  let sizeClass = "";
+  if (opts.inLegend) {
+    sizeClass = "h-4 w-4";
+  } else {
+    sizeClass = opts.shared 
+      ? "h-3.5 w-3.5 sm:h-5 sm:w-5 md:h-6 md:w-6" 
+      : "h-5 w-5 sm:h-8 sm:w-8 md:h-10 md:w-10";
+  }
+
   const core = el("span", {
     class:
-      `${opts.explode ? "explode-dot " : ""}dot-core inline-block h-[14px] w-[14px] rounded-full border ` +
-      (slot === 0 ? "bg-cyan-300 border-cyan-200/60" : "bg-violet-300 border-violet-200/60")
+      `${opts.explode ? "explode-dot " : ""}dot-core shrink-0 inline-block ${sizeClass} rounded-full border transition-all ` +
+      (slot === 0 ? "bg-dot-0" : "bg-dot-1")
   });
   wrap.appendChild(core);
   if (opts.mine) wrap.appendChild(el("span", { class: "mine-mark" }));
@@ -692,16 +702,16 @@ function board10x10Combined(opts: {
       const triedClass = triedA && triedB ? "tried-both" : triedA ? "tried-a" : triedB ? "tried-b" : "";
       const selectableClass = clickable ? `selectable selectable-s${opts.activeSlot}` : "";
       const rowClass = isActiveRow ? "active-row" : "";
-      const cls = `cell ${clickable ? "btncell" : ""} ${disabled ? "disabled" : ""} ${rowClass} ${triedClass} ${selectableClass} ${
-        triedA || triedB ? "flex items-center justify-center gap-1" : ""
-      }`.trim();
+      const cls = `cell ${clickable ? "btncell" : ""} ${disabled ? "disabled" : ""} ${rowClass} ${triedClass} ${selectableClass} ${triedA || triedB ? "flex items-center justify-center gap-1" : ""
+        }`.trim();
 
       const cell = el("div", { class: cls });
       cell.title = `${col}${row}`;
       const isExplA = !!opts.explosion && opts.explosion.row === row && opts.explosion.col === col && opts.explosion.slot === opts.slotA;
       const isExplB = !!opts.explosion && opts.explosion.row === row && opts.explosion.col === col && opts.explosion.slot === opts.slotB;
-      if (triedA) cell.appendChild(dotNode(opts.slotA, { mine: mineA, explode: isExplA }));
-      if (triedB) cell.appendChild(dotNode(opts.slotB, { mine: mineB, explode: isExplB }));
+      const isShared = triedA && triedB;
+      if (triedA) cell.appendChild(dotNode(opts.slotA, { mine: mineA, explode: isExplA, shared: isShared }));
+      if (triedB) cell.appendChild(dotNode(opts.slotB, { mine: mineB, explode: isExplB, shared: isShared }));
       if (clickable) cell.addEventListener("click", () => opts.onPick?.(col));
       grid.appendChild(cell);
     }
@@ -715,84 +725,102 @@ function board10x10Combined(opts: {
 // ---------------------------
 function renderMenu() {
   const nameInput = el("input", {
-    class: "input",
-    placeholder: "Seu nome (opcional)",
+    class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-emerald-500/30 focus:border-emerald-500/50",
+    placeholder: "JOGADOR 1",
     value: appState.name,
     onInput: (e: Event) => {
       appState.name = (e.target as HTMLInputElement).value;
-      // Se já conectado, atualiza o nome no servidor
       if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
         const name = (appState.name || "").trim() || "Jogador";
         appState.ws.send(JSON.stringify({ type: "set_name", name }));
       }
     }
   });
+
   const name2Input = el("input", {
-    class: "input",
-    placeholder: "Nome do Jogador 2 (offline)",
+    class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-orange-500/30 focus:border-orange-500/50",
+    placeholder: "JOGADOR 2",
     value: appState.name2,
     onInput: (e: Event) => {
       appState.name2 = (e.target as HTMLInputElement).value;
     }
   });
 
-  const offlineBtn = el("button", { class: "btn btn-primary w-full sm:w-auto flex-1 justify-center", onClick: startOffline }, ["Jogar offline"]);
-  const onlineBtn = el(
-    "button",
-    {
-      class: "btn btn-secondary w-full sm:w-auto flex-1 justify-center",
-      onClick: () => {
-        connectOnline();
-        appState.screen = "online_lobby";
-        render();
-      }
-    },
-    ["Jogar online"]
-  );
-
-  const formSection = el("div", { class: "flex flex-col gap-4 mt-2" }, [
-    el("div", {}, [
-      el("label", { class: "text-sm font-semibold mb-1 block", text: "1. Seu Nome" }),
-      nameInput,
-      el("span", { class: "muted small block mt-1", text: "Usado em ambas as modalidades."})
-    ]),
-    el("div", {}, [
-      el("label", { class: "text-sm font-semibold mb-1 block", text: "2. Oponente Local (opcional)" }),
-      name2Input,
-      el("span", { class: "muted small block mt-1", text: "Usado apenas para partidas na mesma tela."})
+  const offlineBtn = el("button", {
+    class: "group relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl bg-panel p-6 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(52,211,153,0.3)]",
+    onClick: startOffline
+  }, [
+    el("div", { class: "text-4xl transition-transform duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_15px_rgba(52,211,153,0.8)]" }, ["🎮"]),
+    el("div", { class: "flex flex-col items-center gap-1" }, [
+      el("span", { class: "text-sm font-black uppercase tracking-widest transition-colors group-hover:text-emerald-500 dark:group-hover:text-emerald-400" }, ["Jogar Local"]),
+      el("span", { class: "text-[10px] font-bold tracking-wider uppercase opacity-50" }, ["Mesmo Dispositivo"])
     ])
   ]);
 
-  const actionsSection = el("div", { class: "flex flex-col sm:flex-row gap-3 mt-4" }, [
-    offlineBtn,
-    onlineBtn
-  ]);
-
-  const setupCard = card("Começar a Jogar", [
-    formSection,
-    el("div", { class: "divider my-4" }),
-    el("div", { class: "text-sm font-semibold mb-3", text: "3. Escolha o modo de jogo" }),
-    actionsSection
-  ]);
-
-  const rulesCard = card("Como Jogar", [
-    el("div", { class: "flex flex-wrap gap-2 mb-4" }, [
-      pill(`${COLS.length} colunas (A-${COLS[COLS.length - 1]})`), 
-      pill(`${ROWS} linhas (1-${ROWS})`), 
-      pill("20 pontos")
-    ]),
-    el("div", { class: "space-y-3 text-sm muted" }, [
-      el("p", {}, [`• Cada jogador configura ${MINES_PER_ROW} minas (dano) e 1 X (avanço) por linha para o oponente.`]),
-      el("p", {}, ["• No seu turno, clique em uma célula (coluna) na sua linha atual."]),
-      el("p", {}, ["• Achou o X? Você avança para a próxima linha livre de perigos."]),
-      el("p", {}, ["• Pisou em mina? Você perde pontos. Fique atento e não zere sua vida!"]),
-      el("p", { class: "font-semibold opacity-100 mt-2" }, [`Objetivo: Encontre o X da linha ${ROWS} primeiro, ou simplesmente sobreviva até o oponente perder todos os pontos.`])
+  const onlineBtn = el("button", {
+    class: "group relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl bg-panel p-6 transition-all hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(34,211,238,0.3)]",
+    onClick: () => {
+      connectOnline();
+      appState.screen = "online_lobby";
+      render();
+    }
+  }, [
+    el("div", { class: "text-4xl transition-transform duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]" }, ["🌐"]),
+    el("div", { class: "flex flex-col items-center gap-1" }, [
+      el("span", { class: "text-sm font-black uppercase tracking-widest transition-colors group-hover:text-cyan-600 dark:group-hover:text-cyan-400" }, ["Multiplayer"]),
+      el("span", { class: "text-[10px] font-bold tracking-wider uppercase opacity-50" }, ["Salas Online"])
     ])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
-    setupCard,
-    rulesCard
+  const setupSection = el("div", { class: "mx-auto flex w-full max-w-lg flex-col gap-8 mt-4" }, [
+    el("div", { class: "flex flex-col items-center space-y-2 text-center" }, [
+      el("h2", { class: "bg-gradient-to-r from-emerald-500 via-cyan-500 to-orange-500 bg-clip-text text-4xl sm:text-5xl font-black uppercase tracking-tighter text-transparent drop-shadow-sm" }, ["Preparar Batalha"]),
+      el("p", { class: "text-sm font-bold uppercase tracking-widest opacity-50" }, ["Defina os nomes e escolha a arena"])
+    ]),
+
+    el("div", { class: "grid gap-6 sm:grid-cols-2" }, [
+      el("div", { class: "relative flex flex-col gap-2" }, [
+        el("div", { class: "absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-emerald-500/30 bg-emerald-100 dark:bg-emerald-950/80 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 shadow-sm" }, ["Jogador 1"]),
+        nameInput
+      ]),
+      el("div", { class: "relative flex flex-col gap-2" }, [
+        el("div", { class: "absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-orange-500/30 bg-orange-100 dark:bg-orange-950/80 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400 shadow-sm" }, ["Jogador 2"]),
+        name2Input
+      ])
+    ]),
+
+    el("div", { class: "flex flex-col gap-4 sm:flex-row mt-2" }, [
+      offlineBtn,
+      onlineBtn
+    ])
+  ]);
+
+  const ruleCard = (icon: string, title: string, desc: string, borderColor: string, shadowColor: string) => {
+    return el("div", { class: `group relative flex flex-col sm:flex-row items-center sm:items-start gap-4 overflow-hidden rounded-2xl bg-panel border-b-4 sm:border-b sm:border-l-4 ${borderColor} p-5 text-center sm:text-left transition-all hover:-translate-y-1 ${shadowColor}` }, [
+      el("div", { class: "text-4xl sm:text-3xl transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 mt-1" }, [icon]),
+      el("div", { class: "flex flex-col" }, [
+        el("span", { class: "mb-1 text-sm font-black uppercase tracking-wider" }, [title]),
+        el("span", { class: "text-xs leading-relaxed opacity-70" }, [desc])
+      ])
+    ]);
+  };
+
+  const rulesSection = el("div", { class: "mx-auto mt-16 w-full max-w-4xl" }, [
+    el("div", { class: "mb-8 flex items-center justify-center gap-4 opacity-50" }, [
+      el("div", { class: "h-px w-12 sm:w-32 bg-current" }),
+      el("span", { class: "text-xs font-black uppercase tracking-widest" }, ["Como Sobreviver"]),
+      el("div", { class: "h-px w-12 sm:w-32 bg-current" })
+    ]),
+    el("div", { class: "grid gap-5 md:grid-cols-3" }, [
+      ruleCard("💣", "Plante Armadilhas", `Oculte ${MINES_PER_ROW} minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
+      ruleCard("🏃", "Ache o Atalho", "Adivinhe onde está o X para subir de linha sem tomar dano.", "border-cyan-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.4)]"),
+      ruleCard("🏆", "Sobreviva", "Chegue no topo ou faça o adversário perder seus 20 pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
+    ])
+  ]);
+
+  return el("div", { class: "flex w-full flex-col gap-5 px-2 pb-10 fade-in" }, [
+    setupSection,
+    rulesSection
   ]);
 }
 
@@ -846,23 +874,23 @@ function renderOfflineSetup() {
 
   const rowEditor = setupRowEditor(g.setupDraft, g.setupRow, onToggleMine, onSetX);
 
-  const submit = el("button", { class: "btn btn-primary w-full sm:w-auto flex-1 justify-center", onClick: offlineSubmitSetup }, ["Concluir setup"]);
+  const submit = el("button", { class: "group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/10 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 p-4 font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-400 transition-all hover:shadow-[0_0_20px_rgba(52,211,153,0.3)] w-full sm:w-auto", onClick: offlineSubmitSetup }, ["Concluir Setup"]);
   const randomRowBtn = el(
     "button",
     {
-      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
+      class: "group flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-3 font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:border-cyan-500/50 dark:hover:border-cyan-500/30 h-full max-h-min",
       onClick: () => {
         randomizeDraftRowInPlace(g.setupDraft, g.setupRow);
         setLog(`Linha ${g.setupRow} gerada aleatoriamente.`);
         render();
       }
     },
-    ["Surpresa (linha)"]
+    [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Aleatório"]
   );
   const randomAllBtn = el(
     "button",
     {
-      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
+      class: "group flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-3 font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:border-orange-500/50 dark:hover:border-orange-500/30 h-full max-h-min",
       onClick: () => {
         randomizeDraftInPlace(g.setupDraft);
         g.setupRow = 1;
@@ -870,12 +898,12 @@ function renderOfflineSetup() {
         render();
       }
     },
-    ["Surpresa (todas)"]
+    [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Surpresa Geral"]
   );
   const back = el(
     "button",
     {
-      class: "btn btn-secondary w-full sm:w-auto flex-1 justify-center",
+      class: "flex flex-1 items-center justify-center rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4 font-bold tracking-widest uppercase text-slate-600 dark:text-slate-300 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white w-full sm:w-auto",
       onClick: () => {
         appState.screen = "menu";
         appState.offline = null;
@@ -885,41 +913,56 @@ function renderOfflineSetup() {
     ["Voltar"]
   );
 
-  const controlsGroup = el("div", { class: "flex flex-col gap-3 items-center justify-center bg-white/5 p-3 rounded-lg border border-white/10" }, [
+  const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-4 items-end bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5" }, [
     el("div", { class: "w-full sm:flex-1" }, [
-      el("label", { class: "text-sm font-semibold mb-1 block", text: "Escolher linha:" }),
+      el("label", { class: "text-[10px] font-black uppercase tracking-widest opacity-80 dark:opacity-60 mb-2 block pl-1 text-emerald-600 dark:text-emerald-400", text: "Selecionar Linha" }),
       rowSel
     ]),
-    el("div", { class: "flex flex-row gap-2 w-full flex-3" }, [
+    el("div", { class: "flex flex-row gap-2 w-full sm:w-auto flex-3" }, [
       randomRowBtn,
       randomAllBtn
     ])
   ]);
 
-  const mainCard = card("Setup (offline)", [
-    el("div", { class: "text-sm muted" }, [`${configurador} está configurando as armadilhas para ${alvo}.`]),
-    el("div", { class: "divider my-4" }),
-    controlsGroup,
-    el("div", { class: "divider my-4" }),
-    rowEditor,
-    el("div", { class: "divider my-4" }),
-    el("div", { class: "flex flex-col sm:flex-row gap-3" }, [submit, back])
-  ]);
-
-  const checklistCard = card("Checklist do setup", [
-    el("div", { class: "muted small mb-4" }, [`Cada linha deve ter exatamente 1 X e ${MINES_PER_ROW} minas.`]),
-    el("div", { class: "grid gap-3 sm:grid-cols-2" }, [
-      ...g.setupDraft.map((r) =>
-        el("div", { class: "flex flex-wrap items-center justify-between gap-1 p-2 border border-white/10 rounded-md bg-white/5 shadow-sm" }, [
-          pill(`L${r.row}`),
-          el("span", { class: `tag ${r.x ? "ok" : "danger"} text-xs`.trim(), text: r.x ? `X: ${r.x}` : "X faltante" }),
-          el("span", { class: `tag ${r.mines.length === MINES_PER_ROW ? "ok" : "warn"} text-xs`.trim(), text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
-        ])
-      )
+  const mainCard = el("div", { class: "flex flex-col gap-0 rounded-2xl bg-panel border-black/10 dark:border-white/10 overflow-hidden shadow-xl" }, [
+    el("div", { class: "bg-black/5 dark:bg-black/20 p-5 border-b border-black/5 dark:border-white/5 text-center relative" }, [
+      el("h2", { class: "text-2xl uppercase tracking-wider muted", text: "Fase de Preparação" }),
+      el("p", { class: "text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-2 uppercase tracking-widest", text: `${configurador} armando para ${alvo}` })
+    ]),
+    el("div", { class: "p-4 sm:p-6" }, [
+      controlsGroup,
+      el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 my-6" }),
+      rowEditor,
+      el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 my-6" }),
+      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [submit, back])
     ])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
+  const checklistCard = el("div", { class: "flex flex-col rounded-2xl bg-panel p-4 sm:p-6 border-black/10 dark:border-white/10 shadow-lg" }, [
+    el("div", { class: "flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 gap-2" }, [
+      el("h3", { class: "text-sm font-black uppercase tracking-widest muted", text: "Status Tático" }),
+      el("span", { class: "text-[10px] font-bold bg-black/5 dark:bg-black/40 px-2 py-1 rounded border border-black/10 dark:border-white/5 text-slate-600 dark:text-slate-400 uppercase tracking-widest", text: `Objetivo: 1X e ${MINES_PER_ROW} Minas / Linha` })
+    ]),
+    el("div", { class: "grid gap-3 grid-cols-2 sm:grid-cols-4" }, [
+      ...g.setupDraft.map((r) => {
+        const xOk = !!r.x;
+        const mOk = r.mines.length === MINES_PER_ROW;
+        const allOk = xOk && mOk;
+        return el("div", { class: `flex flex-col justify-between gap-3 p-3 rounded-xl border transition-all ${allOk ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.1)]" : "bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/5"}` }, [
+          el("div", { class: "flex items-center justify-between" }, [
+            el("span", { class: `font-black text-lg ${allOk ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}` }, [`L${r.row}`]),
+            allOk ? el("span", { class: "text-emerald-600 dark:text-emerald-400 font-black" }, ["✓"]) : el("span", { class: "text-orange-500 font-black" }, ["!"])
+          ]),
+          el("div", { class: "flex flex-col gap-1" }, [
+            el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${xOk ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-500/30"}`, text: xOk ? `Atalho: ${r.x}` : "Sem Atalho" }),
+            el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${mOk ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30"}`, text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
+          ])
+        ]);
+      })
+    ])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-6 mx-auto w-full animate-in fade-in zoom-in-95 duration-300" }, [
     mainCard,
     checklistCard
   ]);
@@ -947,7 +990,7 @@ function renderOfflinePlay() {
   const reset = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "flex flex-1 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/10 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 p-4 font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-400 transition-all hover:shadow-[0_0_20px_rgba(52,211,153,0.3)]",
       onClick: () => {
         appState.offline = createOfflineGame();
         const n = (appState.name || "").trim();
@@ -958,78 +1001,95 @@ function renderOfflinePlay() {
         setLog("Novo jogo offline: Jogador 1 configura as armadilhas do Jogador 2.");
       }
     },
-    ["Novo jogo"]
+    ["Novo Jogo"]
   );
 
   const back = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "flex flex-1 items-center justify-center rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4 font-bold tracking-widest uppercase text-slate-600 dark:text-slate-300 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white",
       onClick: () => {
         appState.screen = "menu";
         appState.offline = null;
         setLog("Voltou ao menu.");
       }
     },
-    ["Voltar"]
+    ["Sair da Partida"]
   );
 
-  return el("div", { class: "flex flex-col gap-5 w-full mx-auto" }, [
-    card("Partida (offline)", [
+  const mainCard = el("div", { class: "flex flex-col gap-0 rounded-2xl bg-panel border-black/10 dark:border-white/10 overflow-hidden shadow-xl" }, [
+    el("div", { class: "bg-black/5 dark:bg-black/20 p-5 border-b border-black/5 dark:border-white/5 text-center relative flex flex-col items-center" }, [
+      el("h2", { class: "text-2xl uppercase tracking-wider muted", text: "Partida Local" }),
+      el("p", { class: "text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-2 uppercase tracking-widest", text: "Arena de Batalha" })
+    ]),
+    el("div", { class: "p-4 sm:p-6" }, [
       // Banner de Turno
-      el("div", { class: `flex flex-col items-center justify-center p-4 mb-6 rounded-2xl border transition-all bg-banner-${pi}` }, [
-        el("span", { class: "text-xs font-bold uppercase tracking-wider opacity-70 mb-1", text: "Vez do Jogador" }),
-        el("div", { class: `text-3xl font-black drop-shadow-md text-center ${slotText(pi)}` }, [p.name]),
-        el("div", { class: "mt-3 inline-flex items-center gap-2 bg-panel-badge px-3 py-1.5 rounded-full" }, [
-          el("span", { class: "text-sm font-medium", text: `Linha atual: ${Math.min(ROWS, p.currentRow)}` })
+      el("div", { class: `flex flex-col items-center justify-center p-6 mb-6 rounded-2xl border transition-all shadow-lg bg-banner-${pi}` }, [
+        el("span", { class: "text-[10px] font-black uppercase tracking-widest opacity-70 mb-2", text: "Vez do Jogador" }),
+        el("div", { class: `text-4xl font-black drop-shadow-md text-center ${slotText(pi)}` }, [p.name]),
+        el("div", { class: "mt-4 inline-flex items-center gap-2 bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/5 px-4 py-1.5 rounded-full" }, [
+          el("span", { class: `text-sm font-bold uppercase tracking-widest ${slotText(pi)}`, text: `Linha de Ataque: ${Math.min(ROWS, p.currentRow)}` })
         ]),
-        el("span", { class: "text-xs mt-3 opacity-60 text-center max-w-xs", text: "Clique em uma célula livre na sua linha atual para avançar." })
+        el("span", { class: "text-[10px] font-bold uppercase tracking-widest mt-4 opacity-60 text-center max-w-xs", text: "Clique em uma célula livre na sua linha para avançar." })
       ]),
 
       // Placar
-      el("div", { class: "grid grid-cols-2 gap-3 mb-6" }, [
+      el("div", { class: "grid grid-cols-2 gap-4 mb-6" }, [
         // Jogador 1
-        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${pi === 0 ? "border-slot-0 shadow-slot-0" : "opacity-70"}` }, [
+        el("div", { class: `flex flex-col items-center p-4 rounded-xl border bg-black/5 dark:bg-white/5 relative overflow-hidden transition-all ${pi === 0 ? "border-emerald-400/50 dark:border-emerald-500/50 shadow-[0_0_15px_rgba(52,211,153,0.1)] bg-emerald-50/50 dark:bg-emerald-500/10" : "border-black/5 dark:border-white/5 opacity-80"}` }, [
           el("div", { class: "absolute top-0 left-0 w-full h-1 bg-slot-0" }),
-          el("span", { class: "text-sm font-bold truncate w-full text-center mb-1", text: g.players[0].name }),
-          el("div", { class: "flex items-baseline gap-1 text-2xl font-black text-slot-0-strong" }, [
+          el("span", { class: "text-xs font-black uppercase tracking-widest truncate w-full text-center mb-2 muted", text: g.players[0].name }),
+          el("div", { class: "flex items-baseline gap-1 text-3xl font-black text-slot-0-strong" }, [
             el("span", { text: String(g.players[0].points) }),
-            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+            el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-70", text: "HP" })
           ]),
-          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, g.players[0].currentRow)}` })
+          el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-60 mt-2 text-slot-0-strong", text: `Linha: ${Math.min(ROWS, g.players[0].currentRow)}` })
         ]),
         // Jogador 2
-        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${pi === 1 ? "border-slot-1 shadow-slot-1" : "opacity-70"}` }, [
+        el("div", { class: `flex flex-col items-center p-4 rounded-xl border bg-black/5 dark:bg-white/5 relative overflow-hidden transition-all ${pi === 1 ? "border-orange-400/50 dark:border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.1)] bg-orange-50/50 dark:bg-orange-500/10" : "border-black/5 dark:border-white/5 opacity-80"}` }, [
           el("div", { class: "absolute top-0 left-0 w-full h-1 bg-slot-1" }),
-          el("span", { class: "text-sm font-bold truncate w-full text-center mb-1", text: g.players[1].name }),
-          el("div", { class: "flex items-baseline gap-1 text-2xl font-black text-slot-1-strong" }, [
+          el("span", { class: "text-xs font-black uppercase tracking-widest truncate w-full text-center mb-2 muted", text: g.players[1].name }),
+          el("div", { class: "flex items-baseline gap-1 text-3xl font-black text-slot-1-strong" }, [
             el("span", { text: String(g.players[1].points) }),
-            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+            el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-70", text: "HP" })
           ]),
-          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, g.players[1].currentRow)}` })
+          el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-60 mt-2 text-slot-1-strong", text: `Linha: ${Math.min(ROWS, g.players[1].currentRow)}` })
         ])
       ]),
 
       // Legenda
-      el("div", { class: "flex flex-wrap items-center justify-center gap-3 mb-5 text-sm" }, [
-        el("span", { class: "text-xs font-semibold opacity-50 uppercase tracking-wider hidden sm:block", text: "Legenda" }),
-        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-0 ${slotText(0)}` }, [dot(0), el("span", { class: "font-semibold truncate max-w-[100px]", text: g.players[0].name })]),
-        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-1 ${slotText(1)}` }, [dot(1), el("span", { class: "font-semibold truncate max-w-[100px]", text: g.players[1].name })])
+      el("div", { class: "flex flex-wrap items-center justify-center gap-3 mb-6" }, [
+        el("span", { class: "text-[10px] font-black opacity-50 uppercase tracking-widest hidden sm:block", text: "Identificação:" }),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/5 dark:border-white/5 bg-banner-0 ${slotText(0)}` }, [dot(0), el("span", { class: "text-[10px] font-bold uppercase tracking-widest truncate max-w-[100px]", text: g.players[0].name })]),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/5 dark:border-white/5 bg-banner-1 ${slotText(1)}` }, [dot(1), el("span", { class: "text-[10px] font-bold uppercase tracking-widest truncate max-w-[100px]", text: g.players[1].name })])
       ]),
 
-      el("div", { class: "board-wrap mb-5" }, [board]),
-      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [
-        el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => startOffline() }, ["Novo jogo"]),
-        back
-      ])
+      el("div", { class: "board-wrap mb-6" }, [board]),
+      el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 my-6" }),
+      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [reset, back])
+    ])
+  ]);
+
+  const progressCard = el("div", { class: "flex flex-col rounded-2xl bg-panel p-4 sm:p-6 border-black/10 dark:border-white/10 shadow-lg mt-5" }, [
+    el("div", { class: "flex items-center justify-between mb-5" }, [
+      el("h3", { class: "text-sm font-black uppercase tracking-widest muted", text: "Status de Avanço" }),
+      el("span", { class: "text-[10px] font-bold bg-black/5 dark:bg-black/40 px-2 py-1 rounded border border-black/10 dark:border-white/5 text-slate-600 dark:text-slate-400 uppercase tracking-widest", text: `Progresso Atual` })
     ]),
-    card("Progresso", [
-      el("div", { class: "text-sm muted mb-3" }, ["Status das linhas (por jogador)."]),
-      el("div", { class: "grid gap-3 sm:grid-cols-2" }, [
-        card(g.players[0].name, [progressList(g.players[0].currentRow)]),
-        card(g.players[1].name, [progressList(g.players[1].currentRow)])
+    el("div", { class: "grid gap-4 sm:grid-cols-2" }, [
+      el("div", { class: "flex flex-col gap-2 p-3 rounded-xl bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/5" }, [
+        el("span", { class: "text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 text-center", text: g.players[0].name }),
+        progressList(g.players[0].currentRow)
+      ]),
+      el("div", { class: "flex flex-col gap-2 p-3 rounded-xl bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/5" }, [
+        el("span", { class: "text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 text-center", text: g.players[1].name }),
+        progressList(g.players[1].currentRow)
       ])
     ])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-0 mx-auto w-full animate-in fade-in zoom-in-95 duration-300" }, [
+    mainCard,
+    progressCard
   ]);
 }
 
@@ -1150,12 +1210,12 @@ function renderOnlineLobby() {
 
   const roomInfo = s?.roomCode
     ? el("div", { class: "p-4 bg-white/5 border border-white/10 rounded-lg flex flex-col gap-2 mt-4" }, [
-        el("div", { class: "flex items-center gap-2" }, [
-          el("span", { class: "tag ok font-bold", text: `Sala: ${s.roomCode}` }),
-          el("span", { class: "tag", text: `Jogadores: ${s.playersCount}/2` }),
-          el("span", { class: "tag", text: `Fase: ${s.phase}` })
-        ])
+      el("div", { class: "flex items-center gap-2" }, [
+        el("span", { class: "tag ok font-bold", text: `Sala: ${s.roomCode}` }),
+        el("span", { class: "tag", text: `Jogadores: ${s.playersCount}/2` }),
+        el("span", { class: "tag", text: `Fase: ${s.phase}` })
       ])
+    ])
     : null;
 
   const headerControls = el("div", { class: "flex justify-between items-center mb-2" }, [
@@ -1189,7 +1249,7 @@ function renderOnlineLobby() {
       el("div", { class: "flex flex-col gap-2" }, [
         roomInput,
         el("button", {
-          class: "btn mx-0", 
+          class: "btn mx-0",
           style: "background: var(--surface-hover); border-color: var(--surface-border);",
           onClick: () => wsSend({ type: "join_room", roomCode: appState.roomCodeInput }),
           disabled: appState.wsStatus === "connecting" || !appState.roomCodeInput.trim()
@@ -1204,7 +1264,7 @@ function renderOnlineLobby() {
     nameSection,
     el("div", { class: "divider my-4" }),
     actionsSection,
-    ...(s?.roomCode ? [roomInfo, el("div", { class: "mt-2"}, [copyBtn])] : []),
+    ...(s?.roomCode ? [roomInfo, el("div", { class: "mt-2" }, [copyBtn])] : []),
     el("div", { class: "divider my-4" }),
     el("div", { class: "muted small text-center" }, [`Dano da mina nesta partida (servidor): -${appState.mineDamage} ponto(s)`])
   ]);
@@ -1244,19 +1304,19 @@ function renderOnlineSetup() {
   const randomRowBtn = el(
     "button",
     {
-      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
+      class: "group flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3 font-bold text-xs uppercase tracking-wider transition-all hover:bg-white/10 hover:border-cyan-500/30 h-full max-h-min",
       onClick: () => {
         randomizeDraftRowInPlace(onlineSetup.trapsDraft, onlineSetup.row);
         setLog(`Linha ${onlineSetup.row} gerada aleatoriamente.`);
         render();
       }
     },
-    ["Surpresa (linha)"]
+    [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Aleatório"]
   );
   const randomAllBtn = el(
     "button",
     {
-      class: "btn btn-secondary flex-1 justify-center font-semibold text-sm h-full max-h-min",
+      class: "group flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3 font-bold text-xs uppercase tracking-wider transition-all hover:bg-white/10 hover:border-orange-500/30 h-full max-h-min",
       onClick: () => {
         randomizeDraftInPlace(onlineSetup.trapsDraft);
         onlineSetup.row = 1;
@@ -1264,7 +1324,7 @@ function renderOnlineSetup() {
         render();
       }
     },
-    ["Surpresa (todas)"]
+    [el("span", { class: "text-lg transition-transform group-hover:rotate-12" }, ["🎲"]), "Surpresa Geral"]
   );
 
   const onToggleMine = (col: string) => {
@@ -1287,27 +1347,33 @@ function renderOnlineSetup() {
     render();
   };
 
-  const submit = el("button", { class: "btn btn-primary w-full sm:w-auto flex-1 justify-center", onClick: onlineSubmitSetup, disabled: you.setupSubmitted }, [
-    you.setupSubmitted ? "Setup enviado" : "Enviar setup"
+  const submit = el("button", {
+    class: `group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border p-4 font-black tracking-widest uppercase transition-all w-full sm:w-auto ${you.setupSubmitted ? "border-slate-300 dark:border-slate-500/30 bg-slate-200 dark:bg-slate-500/10 text-slate-500 dark:text-slate-400 cursor-not-allowed" : "border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 hover:shadow-[0_0_20px_rgba(52,211,153,0.3)]"}`,
+    onClick: onlineSubmitSetup,
+    disabled: you.setupSubmitted
+  }, [
+    you.setupSubmitted ? "Setup Enviado" : "Enviar Setup"
   ]);
+
   const resetDraft = el(
     "button",
     {
-      class: "btn btn-secondary w-full sm:w-auto flex-1 justify-center",
+      class: "flex flex-1 items-center justify-center rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4 font-bold tracking-widest uppercase text-slate-600 dark:text-slate-300 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white w-full sm:w-auto",
       onClick: () => {
         onlineSetup.trapsDraft = newEmptyTraps();
         onlineSetup.row = 1;
         setLog("Setup local resetado.");
+        render();
       }
     },
-    ["Resetar rascunho"]
+    ["Resetar"]
   );
 
   const rowEditor = setupRowEditor(onlineSetup.trapsDraft, onlineSetup.row, onToggleMine, onSetX);
 
-  const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-3 items-end sm:items-center bg-white/5 p-3 rounded-lg border border-white/10" }, [
+  const controlsGroup = el("div", { class: "flex flex-col sm:flex-row gap-4 items-end bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5" }, [
     el("div", { class: "w-full sm:flex-1" }, [
-      el("label", { class: "text-sm font-semibold mb-1 block", text: "Escolher linha:" }),
+      el("label", { class: "text-[10px] font-black uppercase tracking-widest opacity-80 dark:opacity-60 mb-2 block pl-1 text-cyan-700 dark:text-cyan-400", text: "Selecionar Linha" }),
       rowSel
     ]),
     el("div", { class: "flex flex-row gap-2 w-full sm:w-auto flex-3" }, [
@@ -1316,33 +1382,58 @@ function renderOnlineSetup() {
     ])
   ]);
 
-  const topStatus = el("div", { class: "flex flex-wrap items-center gap-2 mb-4 justify-center" }, [
-      el("span", { class: "tag ok font-bold", text: `Sala: ${s.roomCode}` }),
-      el("span", { class: "tag", text: `Você: ${you.name}` }),
-      el("span", { class: "tag", text: `Oponente: ${opp?.name || "..."}` })
+  const topStatus = el("div", { class: "flex flex-wrap items-center gap-3 mb-4 justify-center" }, [
+    el("span", { class: "text-[10px] font-black uppercase tracking-widest bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30 px-3 py-1 rounded", text: `Sala: ${s.roomCode}` }),
+    el("span", { class: "text-[10px] font-bold uppercase tracking-widest bg-black/5 dark:bg-black/40 text-slate-600 dark:text-slate-300 border border-black/10 dark:border-white/10 px-3 py-1 rounded", text: `Você: ${you.name}` }),
+    el("span", { class: "text-[10px] font-bold uppercase tracking-widest bg-black/5 dark:bg-black/40 text-slate-600 dark:text-slate-300 border border-black/10 dark:border-white/10 px-3 py-1 rounded", text: `Oponente: ${opp?.name || "..."}` })
   ]);
 
-  const mainCard = card("Setup (online)", [
-    topStatus,
-    el("div", { class: "text-sm muted mb-4 text-center" }, [`Configure as armadilhas para seu oponente.`]),
-    controlsGroup,
-    el("div", { class: "divider my-4" }),
-    rowEditor,
-    el("div", { class: "divider my-4" }),
-    el("div", { class: "flex flex-col sm:flex-row gap-3" }, [submit, resetDraft]),
-    el("div", { class: "muted small text-center mt-3" }, [you.setupSubmitted ? "Aguardando oponente enviar o setup..." : "Envie o setup quando terminar."])
-  ]);
-
-  const checklistCard = card("Status da Sala", [
-    el("div", { class: "flex flex-col sm:flex-row gap-3 justify-center" }, [
-      el("span", { class: `tag ${you.setupSubmitted ? "ok" : "warn"} font-semibold justify-center py-2 px-4 shadow-sm`.trim(), text: you.setupSubmitted ? "Seu setup: OK" : "Seu setup: Pendente" }),
-      el("span", { class: `tag ${opp?.setupSubmitted ? "ok" : "warn"} font-semibold justify-center py-2 px-4 shadow-sm`.trim(), text: opp?.setupSubmitted ? "Oponente: OK" : "Oponente: Pendente" })
+  const mainCard = el("div", { class: "flex flex-col gap-0 rounded-2xl bg-panel border-black/10 dark:border-white/10 overflow-hidden shadow-xl" }, [
+    el("div", { class: "bg-black/5 dark:bg-black/20 p-5 border-b border-black/5 dark:border-white/5 text-center relative flex flex-col items-center" }, [
+      topStatus,
+      el("h2", { class: "text-2xl uppercase tracking-wider muted", text: "Fase de Preparação" }),
+      el("p", { class: "text-[10px] font-bold text-cyan-700 dark:text-cyan-400 mt-2 uppercase tracking-widest", text: `Prepare a arena para o adversário` })
     ]),
-    el("div", { class: "divider my-3" }),
-    el("div", { class: "muted small text-center" }, ["A partida começa automaticamente quando ambos enviarem."])
+    el("div", { class: "p-4 sm:p-6" }, [
+      controlsGroup,
+      el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 my-6" }),
+      rowEditor,
+      el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 my-6" }),
+      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [submit, resetDraft]),
+      el("div", { class: "text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500 text-center mt-4" }, [you.setupSubmitted ? "Aguardando oponente enviar o setup..." : "Envie o setup quando terminar."])
+    ])
   ]);
 
-  return el("div", { class: "flex flex-col gap-5 mx-auto w-full" }, [
+  const checklistCard = el("div", { class: "flex flex-col rounded-2xl bg-panel p-4 sm:p-6 border-black/10 dark:border-white/10 shadow-lg" }, [
+    el("div", { class: "flex flex-col sm:flex-row items-center justify-between mb-5 gap-3" }, [
+      el("h3", { class: "text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200", text: "Status da Sala" }),
+      el("div", { class: "flex flex-row gap-2" }, [
+        el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded border ${you.setupSubmitted ? "bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-300 dark:border-amber-500/30"}`, text: you.setupSubmitted ? "Você: Pronto" : "Você: Pendente" }),
+        el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded border ${opp?.setupSubmitted ? "bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30" : "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-300 dark:border-amber-500/30"}`, text: opp?.setupSubmitted ? "Oponente: Pronto" : "Oponente: Pendente" })
+      ])
+    ]),
+    el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 mb-5" }),
+    el("div", { class: "grid gap-3 grid-cols-2 sm:grid-cols-4" }, [
+      ...onlineSetup.trapsDraft.map((r) => {
+        const xOk = !!r.x;
+        const mOk = r.mines.length === MINES_PER_ROW;
+        const allOk = xOk && mOk;
+        return el("div", { class: `flex flex-col justify-between gap-3 p-3 rounded-xl border transition-all ${allOk ? "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-300 dark:border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.1)]" : "bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/5"}` }, [
+          el("div", { class: "flex items-center justify-between" }, [
+            el("span", { class: `font-black text-lg ${allOk ? "text-cyan-700 dark:text-cyan-400" : "text-slate-500"}` }, [`L${r.row}`]),
+            allOk ? el("span", { class: "text-cyan-600 dark:text-cyan-400 font-black" }, ["✓"]) : el("span", { class: "text-orange-500 font-black" }, ["!"])
+          ]),
+          el("div", { class: "flex flex-col gap-1" }, [
+            el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${xOk ? "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/30" : "bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-500/30"}`, text: xOk ? `Atalho: ${r.x}` : "Sem Atalho" }),
+            el("span", { class: `text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border text-center ${mOk ? "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/30" : "bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30"}`, text: `Minas: ${r.mines.length}/${MINES_PER_ROW}` })
+          ])
+        ]);
+      })
+    ]),
+    el("div", { class: "text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500 text-center mt-5" }, ["A partida começa automaticamente quando ambos enviarem."])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-6 mx-auto w-full animate-in fade-in zoom-in-95 duration-300" }, [
     mainCard,
     checklistCard
   ]);
@@ -1376,75 +1467,95 @@ function renderOnlinePlay() {
     explosion: appState.lastExplosion
   });
 
-  const reset = el("button", { class: "btn btn-secondary", onClick: () => wsSend({ type: "reset_room" }) }, ["Reiniciar (após fim)"]);
+  const reset = el("button", { class: "flex flex-1 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 dark:bg-cyan-500/10 hover:bg-cyan-500/20 dark:hover:bg-cyan-500/20 p-4 font-black tracking-widest uppercase text-cyan-700 dark:text-cyan-400 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]", onClick: () => wsSend({ type: "reset_room" }) }, ["Reiniciar (após fim)"]);
   const back = el(
     "button",
     {
-      class: "btn btn-secondary",
+      class: "flex flex-1 items-center justify-center rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4 font-bold tracking-widest uppercase text-slate-600 dark:text-slate-300 transition-all hover:bg-black/10 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white",
       onClick: () => {
         appState.screen = "menu";
         setLog("Voltou ao menu.");
       }
     },
-    ["Voltar"]
+    ["Sair da Partida"]
   );
 
-  return el("div", { class: "flex flex-col gap-5 w-full mx-auto" }, [
-    card("Partida (online)", [
+  const mainCard = el("div", { class: "flex flex-col gap-0 rounded-2xl bg-panel border-black/10 dark:border-white/10 overflow-hidden shadow-xl" }, [
+    el("div", { class: "bg-black/5 dark:bg-black/20 p-5 border-b border-black/5 dark:border-white/5 text-center relative flex flex-col items-center" }, [
+      el("h2", { class: "text-2xl uppercase tracking-wider muted", text: "Partida Multiplayer" }),
+      el("p", { class: "text-[10px] font-bold text-cyan-600 dark:text-cyan-400 mt-2 uppercase tracking-widest", text: "Arena Online" })
+    ]),
+    el("div", { class: "p-4 sm:p-6" }, [
       // Banner de Turno
-      el("div", { class: `relative flex flex-col items-center justify-center p-4 mb-6 rounded-2xl border transition-all ${isYourTurn ? `bg-banner-${you.slot}` : "bg-panel opacity-75"}` }, [
+      el("div", { class: `relative flex flex-col items-center justify-center p-6 mb-6 rounded-2xl border transition-all shadow-lg ${isYourTurn ? `bg-banner-${you.slot}` : "bg-black/5 dark:bg-white/5 opacity-80"}` }, [
         el("div", { class: "absolute top-3 right-3 hidden sm:block" }, [
-          el("span", { class: "text-[10px] font-bold uppercase tracking-wider bg-panel-badge px-2 py-1 rounded border border-white/5", text: `Sala: ${s.roomCode}` })
+          el("span", { class: "text-[10px] font-bold uppercase tracking-wider bg-black/10 dark:bg-black/40 px-2 py-1 rounded border border-black/10 dark:border-white/10 text-slate-600 dark:text-slate-400", text: `Sala: ${s.roomCode}` })
         ]),
-        el("span", { class: "text-xs font-bold uppercase tracking-wider opacity-70 mb-1", text: isYourTurn ? "Sua vez de jogar" : "Aguardando oponente" }),
-        el("div", { class: `text-3xl font-black drop-shadow-md text-center ${isYourTurn ? slotText(you.slot) : "opacity-60"}` }, [isYourTurn ? "Sua vez!" : "Vez do oponente"]),
-        el("div", { class: "mt-3 inline-flex items-center gap-2 bg-panel-badge px-3 py-1.5 rounded-full" }, [
-          el("span", { class: "text-sm font-medium", text: `Linha atual: ${Math.min(ROWS, you.currentRow)}` })
+        el("span", { class: "text-[10px] font-black uppercase tracking-widest opacity-70 mb-2", text: isYourTurn ? "Ação Requerida" : "Aguardando Oponente" }),
+        el("div", { class: `text-4xl font-black drop-shadow-md text-center ${isYourTurn ? slotText(you.slot) : "opacity-60"}` }, [isYourTurn ? "Sua Vez!" : "Vez do Oponente"]),
+        el("div", { class: "mt-4 inline-flex items-center gap-2 bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/5 px-4 py-1.5 rounded-full" }, [
+          el("span", { class: `text-sm font-bold uppercase tracking-widest ${isYourTurn ? slotText(you.slot) : "opacity-60"}`, text: `Linha Atual: ${Math.min(ROWS, isYourTurn ? you.currentRow : opp.currentRow)}` })
         ]),
-        el("span", { class: "text-xs mt-3 opacity-60 text-center max-w-xs", text: isYourTurn ? "Clique em uma célula livre na sua linha atual." : "Aguarde o outro jogador terminar a jogada." })
+        el("span", { class: "text-[10px] font-bold uppercase tracking-widest mt-4 opacity-60 text-center max-w-xs", text: isYourTurn ? "Clique em uma célula livre na sua linha para avançar." : "Aguarde o outro jogador terminar a jogada." })
       ]),
 
       // Placar
-      el("div", { class: "grid grid-cols-2 gap-3 mb-6" }, [
+      el("div", { class: "grid grid-cols-2 gap-4 mb-6" }, [
         // Você
-        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${isYourTurn ? `border-slot-${you.slot} shadow-slot-${you.slot}` : "opacity-70"}` }, [
+        el("div", { class: `flex flex-col items-center p-4 rounded-xl border bg-black/5 dark:bg-white/5 relative overflow-hidden transition-all ${isYourTurn ? `border-slot-${you.slot} shadow-slot-${you.slot} bg-banner-${you.slot}` : "border-black/5 dark:border-white/5 opacity-80"}` }, [
           el("div", { class: `absolute top-0 left-0 w-full h-1 bg-slot-${you.slot}` }),
-          el("span", { class: "text-sm font-bold w-full text-center mb-1 flex items-center justify-center gap-1", text: "Você" }),
-          el("div", { class: `flex items-baseline gap-1 text-2xl font-black text-slot-${you.slot}-strong` }, [
+          el("span", { class: "text-xs font-black uppercase tracking-widest truncate w-full text-center mb-2 muted", text: "Você" }),
+          el("div", { class: `flex items-baseline gap-1 text-3xl font-black text-slot-${you.slot}-strong` }, [
             el("span", { text: String(you.points) }),
-            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+            el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-70", text: "HP" })
           ]),
-          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, you.currentRow)}` })
+          el("span", { class: `text-[10px] font-bold uppercase tracking-widest opacity-60 mt-2 text-slot-${you.slot}-strong`, text: `Linha: ${Math.min(ROWS, you.currentRow)}` })
         ]),
         // Oponente
-        el("div", { class: `flex flex-col items-center p-3 rounded-xl border bg-panel relative overflow-hidden ${!isYourTurn ? `border-slot-${opp.slot} shadow-slot-${opp.slot}` : "opacity-70"}` }, [
+        el("div", { class: `flex flex-col items-center p-4 rounded-xl border bg-black/5 dark:bg-white/5 relative overflow-hidden transition-all ${!isYourTurn ? `border-slot-${opp.slot} shadow-slot-${opp.slot} bg-banner-${opp.slot}` : "border-black/5 dark:border-white/5 opacity-80"}` }, [
           el("div", { class: `absolute top-0 left-0 w-full h-1 bg-slot-${opp.slot}` }),
-          el("span", { class: "text-sm font-bold truncate w-full text-center mb-1", text: opp.name }),
-          el("div", { class: `flex items-baseline gap-1 text-2xl font-black text-slot-${opp.slot}-strong` }, [
+          el("span", { class: "text-xs font-black uppercase tracking-widest truncate w-full text-center mb-2 muted", text: opp.name }),
+          el("div", { class: `flex items-baseline gap-1 text-3xl font-black text-slot-${opp.slot}-strong` }, [
             el("span", { text: String(opp.points) }),
-            el("span", { class: "text-xs font-normal opacity-70", text: "pts" })
+            el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-70", text: "HP" })
           ]),
-          el("span", { class: "text-xs opacity-60 mt-1", text: `Linha: ${Math.min(ROWS, opp.currentRow)}` })
+          el("span", { class: `text-[10px] font-bold uppercase tracking-widest opacity-60 mt-2 text-slot-${opp.slot}-strong`, text: `Linha: ${Math.min(ROWS, opp.currentRow)}` })
         ])
       ]),
 
       // Legenda
-      el("div", { class: "flex flex-wrap items-center justify-center gap-3 mb-5 text-sm" }, [
-        el("span", { class: "text-xs font-semibold opacity-50 uppercase tracking-wider hidden sm:block", text: "Legenda" }),
-        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-${you.slot} ${slotText(you.slot)}` }, [dot(you.slot), el("span", { class: "font-semibold truncate max-w-[100px]", text: "Você" })]),
-        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg bg-banner-${opp.slot} ${slotText(opp.slot)}` }, [dot(opp.slot), el("span", { class: "font-semibold truncate max-w-[100px]", text: opp.name })])
+      el("div", { class: "flex flex-wrap items-center justify-center gap-3 mb-6" }, [
+        el("span", { class: "text-[10px] font-black opacity-50 uppercase tracking-widest hidden sm:block", text: "Identificação:" }),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/5 dark:border-white/5 bg-banner-${you.slot} ${slotText(you.slot)}` }, [dot(you.slot), el("span", { class: "text-[10px] font-bold uppercase tracking-widest truncate max-w-[100px]", text: "Você" })]),
+        el("span", { class: `flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/5 dark:border-white/5 bg-banner-${opp.slot} ${slotText(opp.slot)}` }, [dot(opp.slot), el("span", { class: "text-[10px] font-bold uppercase tracking-widest truncate max-w-[100px]", text: opp.name })])
       ]),
 
-      el("div", { class: "board-wrap mb-5" }, [board]),
-      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [
-        el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => wsSend({ type: "reset_room" }) }, ["Reiniciar (após fim)"]),
-        el("button", { class: "btn btn-secondary flex-1 justify-center", onClick: () => { appState.screen = "menu"; setLog("Voltou ao menu."); } }, ["Sair"])
-      ])
-    ]),
-    card("Progresso", [
-      el("div", { class: "text-sm muted mb-3" }, ["Status das linhas (por jogador)."]),
-      el("div", { class: "grid gap-3 sm:grid-cols-2" }, [card(you.name, [progressList(you.currentRow)]), card(opp.name, [progressList(opp.currentRow)])])
+      el("div", { class: "board-wrap mb-6" }, [board]),
+      el("div", { class: "h-px w-full bg-black/10 dark:bg-white/5 my-6" }),
+      el("div", { class: "flex flex-col sm:flex-row gap-3" }, [reset, back])
     ])
+  ]);
+
+  const progressCard = el("div", { class: "flex flex-col rounded-2xl bg-panel p-4 sm:p-6 border-black/10 dark:border-white/10 shadow-lg mt-5" }, [
+    el("div", { class: "flex items-center justify-between mb-5" }, [
+      el("h3", { class: "text-sm font-black uppercase tracking-widest muted", text: "Status de Avanço" }),
+      el("span", { class: "text-[10px] font-bold bg-black/5 dark:bg-black/40 px-2 py-1 rounded border border-black/10 dark:border-white/5 text-slate-600 dark:text-slate-400 uppercase tracking-widest", text: `Progresso Atual` })
+    ]),
+    el("div", { class: "grid gap-4 sm:grid-cols-2" }, [
+      el("div", { class: "flex flex-col gap-2 p-3 rounded-xl bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/5" }, [
+        el("span", { class: `text-[10px] font-black uppercase tracking-widest text-center ${slotText(you.slot)}`, text: you.name }),
+        progressList(you.currentRow)
+      ]),
+      el("div", { class: "flex flex-col gap-2 p-3 rounded-xl bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/5" }, [
+        el("span", { class: `text-[10px] font-black uppercase tracking-widest text-center ${slotText(opp.slot)}`, text: opp.name }),
+        progressList(opp.currentRow)
+      ])
+    ])
+  ]);
+
+  return el("div", { class: "flex flex-col gap-0 mx-auto w-full max-w-2xl animate-in fade-in zoom-in-95 duration-300" }, [
+    mainCard,
+    progressCard
   ]);
 }
 
@@ -1513,10 +1624,14 @@ function render() {
       screenEl = renderMenu();
   }
 
-  const logBox = el("div", { class: "log", text: appState.log || "" });
+  const logBox = el("div", { class: "log", text: appState.log || "Nenhuma atividade recente." });
   appEl.appendChild(screenEl);
-  appEl.appendChild(el("div", { style: "height: 12px" }));
-  appEl.appendChild(card("Log", [logBox]));
+  appEl.appendChild(el("div", { class: "w-full mx-auto mt-8 px-2" }, [
+    el("div", { class: "flex items-center gap-2 mb-2 opacity-50" }, [
+      el("span", { class: "text-[10px] font-black uppercase tracking-widest" }, ["Log do Sistema"])
+    ]),
+    logBox
+  ]));
 }
 
 render();
