@@ -24,6 +24,21 @@ function colsForConfig(_config: GameConfig): string[] {
 // ---------------------------
 type Theme = "dark" | "light";
 const THEME_KEY = "x-minas-theme";
+const NAME_KEY = "x-minas-name";
+const NAME2_KEY = "x-minas-name2";
+
+function getSavedName(): string {
+  return localStorage.getItem(NAME_KEY) || "";
+}
+function getSavedName2(): string {
+  return localStorage.getItem(NAME2_KEY) || "";
+}
+function saveName(name: string) {
+  localStorage.setItem(NAME_KEY, name);
+}
+function saveName2(name: string) {
+  localStorage.setItem(NAME2_KEY, name);
+}
 
 function getPreferredTheme(): Theme {
   const saved = (localStorage.getItem(THEME_KEY) || "").toLowerCase();
@@ -150,8 +165,8 @@ const appState: {
   wsQueue: [],
   serverState: null,
   playerId: null,
-  name: "",
-  name2: "",
+  name: getSavedName(),
+  name2: getSavedName2(),
   roomCodeInput: "",
   pendingConfig: { ...DEFAULT_CONFIG },
   lastExplosion: null
@@ -759,6 +774,7 @@ function renderMenu() {
     value: appState.name,
     onInput: (e: Event) => {
       appState.name = (e.target as HTMLInputElement).value;
+      saveName(appState.name);
       if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
         const name = (appState.name || "").trim() || "Jogador";
         appState.ws.send(JSON.stringify({ type: "set_name", name }));
@@ -772,6 +788,7 @@ function renderMenu() {
     value: appState.name2,
     onInput: (e: Event) => {
       appState.name2 = (e.target as HTMLInputElement).value;
+      saveName2(appState.name2);
     }
   });
 
@@ -1240,7 +1257,10 @@ function renderOnlineLobby() {
     class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-cyan-500/30 focus:border-cyan-500/50",
     placeholder: "SEU NOME",
     value: appState.name,
-    onInput: (e: Event) => (appState.name = (e.target as HTMLInputElement).value)
+    onInput: (e: Event) => {
+      appState.name = (e.target as HTMLInputElement).value;
+      saveName(appState.name);
+    }
   });
 
   const connectBtn = el(
@@ -1278,7 +1298,11 @@ function renderOnlineLobby() {
 
   const createBtn = el("button", {
     class: "flex items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 p-4 font-black tracking-widest uppercase text-cyan-600 dark:text-cyan-400 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.3)] w-full h-full min-h-[56px]",
-    onClick: () => wsSend({ type: "create_room", config: appState.pendingConfig }), disabled: appState.wsStatus === "connecting"
+    onClick: () => {
+      const name = (appState.name || "").trim() || "Jogador";
+      wsSend({ type: "set_name", name });
+      wsSend({ type: "create_room", config: appState.pendingConfig });
+    }, disabled: appState.wsStatus === "connecting"
   }, ["Criar Nova Sala"]);
 
   const roomInput = el("input", {
@@ -1295,7 +1319,11 @@ function renderOnlineLobby() {
     "button",
     {
       class: "flex items-center justify-center rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 p-4 font-black tracking-widest uppercase text-orange-600 dark:text-orange-400 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(249,115,22,0.3)] w-full mt-2 h-[56px]",
-      onClick: () => wsSend({ type: "join_room", roomCode: appState.roomCodeInput }),
+      onClick: () => {
+        const name = (appState.name || "").trim() || "Jogador";
+        wsSend({ type: "set_name", name });
+        wsSend({ type: "join_room", roomCode: appState.roomCodeInput });
+      },
       disabled: appState.wsStatus === "connecting" || !appState.roomCodeInput.trim()
     },
     ["Entrar na Sala"]
