@@ -827,7 +827,7 @@ function renderMenu() {
       el("div", { class: "h-px w-12 sm:w-32 bg-current" })
     ]),
     el("div", { class: "grid gap-5 md:grid-cols-3" }, [
-      ruleCard("💣", "Plante Armadilhas", `Oculte ${appState.pendingConfig.minesPerRow} minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
+      ruleCard("💣", "Plante Armadilhas", `Oculte minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
       ruleCard("🏃", "Ache o Atalho", "Adivinhe onde está o X para descer de linha sem tomar dano.", "border-cyan-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.4)]"),
       ruleCard("🏆", "Sobreviva", "Chegue no topo ou faça o adversário perder seus pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
     ])
@@ -903,11 +903,11 @@ function renderOfflineLobby() {
     el("div", { class: "grid gap-3 grid-cols-3 w-full" }, [
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Linhas" }),
-        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow >= v) appState.pendingConfig.minesPerRow = v - 1; render(); } })
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow > ALL_COLS.length - 1) appState.pendingConfig.minesPerRow = ALL_COLS.length - 1; render(); } })
       ]),
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Minas/Linha" }),
-        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(appState.pendingConfig.rows - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(appState.pendingConfig.rows - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(ALL_COLS.length - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(ALL_COLS.length - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
       ]),
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
@@ -1334,11 +1334,11 @@ function renderOnlineLobby() {
     el("div", { class: "grid gap-3 grid-cols-3 w-full" }, [
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Linhas" }),
-        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow >= v) appState.pendingConfig.minesPerRow = v - 1; render(); } })
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow > ALL_COLS.length - 1) appState.pendingConfig.minesPerRow = ALL_COLS.length - 1; render(); } })
       ]),
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Minas/Linha" }),
-        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(appState.pendingConfig.rows - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(appState.pendingConfig.rows - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(ALL_COLS.length - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(ALL_COLS.length - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
       ]),
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),

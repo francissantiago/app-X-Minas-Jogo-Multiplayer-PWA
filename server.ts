@@ -20,7 +20,7 @@ function calcHealth(config: GameConfig): number {
 
 function sanitizeConfig(raw: any): GameConfig {
   const rows = Math.max(2, Math.min(MAX_ROWS, Number(raw?.rows) || DEFAULT_ROWS));
-  const minesPerRow = Math.max(1, Math.min(rows - 1, Number(raw?.minesPerRow) || DEFAULT_MINES_PER_ROW));
+  const minesPerRow = Math.max(1, Math.min(ALL_COLS.length - 1, Number(raw?.minesPerRow) || DEFAULT_MINES_PER_ROW));
   const mineDamage = Math.max(1, Math.min(5, Number(raw?.mineDamage) || DEFAULT_MINE_DAMAGE));
   return { rows, minesPerRow, mineDamage };
 }
