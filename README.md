@@ -113,7 +113,7 @@ No lobby (local ou online), você pode configurar:
 | Minas/Linha | 3      | 1      | Linhas-1 |
 | Dano/Mina   | 1      | 1      | 5        |
 
-**Cálculo de HP**: `base 10 + (linhas × minas × dano × 0.6)`, arredondado para cima
+**Cálculo de HP**: `max(10, ceil(linhas × minas × dano × 0.6))`
 
 ## Controles do Setup
 
