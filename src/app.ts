@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import "./styles.css";
 
 // Config do tabuleiro
