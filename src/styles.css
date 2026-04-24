@@ -4,6 +4,7 @@
 
 /* Tailwind CSS v4.x (via @tailwindcss/vite) */
 @import "tailwindcss";
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
 
 /* Estados de tema (via classe no <html>) */
 .theme-dark {
@@ -137,16 +138,23 @@
     @apply my-3 h-px bg-white/10;
   }
 
-  /* Tabuleiro estilo "planilha" (100 células) */
+  /* Tabuleiro estilo "planilha" (100 células) — grid fluido sem breakpoints */
   .board-grid {
-    @apply grid items-stretch gap-1 select-none sm:gap-1.5;
-    grid-template-columns: clamp(28px, 8vw, 38px) repeat(8, minmax(0, 1fr));
+    @apply grid items-stretch select-none;
+    gap: clamp(2px, 0.5vw, 6px);
+    grid-template-columns: minmax(28px, clamp(32px, 5vw, 48px)) repeat(8, minmax(28px, 1fr));
+  }
+
+  /* Separador visual na primeira coluna (nº da linha / header #) */
+  .board-grid > .cell:nth-child(9n+1) {
+    aspect-ratio: auto;
+    height: 100%;
+    border-right: 2px solid rgba(255, 255, 255, 0.06);
   }
 
   .cell {
     @apply grid place-items-center rounded-xl border border-white/10 bg-black/20 text-xs font-semibold sm:text-sm;
     aspect-ratio: 1 / 1;
-    min-height: 28px;
   }
 
   .cell.header {
@@ -167,13 +175,13 @@
 
   /* Destaques de jogadas (melhor visibilidade) */
   .cell.tried-a {
-    @apply border-cyan-300/35 bg-cyan-400/10;
+    @apply border-emerald-300/35 bg-emerald-400/10;
   }
   .cell.tried-b {
-    @apply border-violet-300/35 bg-violet-400/10;
+    @apply border-orange-300/35 bg-orange-400/10;
   }
   .cell.tried-both {
-    @apply border-emerald-300/25 bg-gradient-to-br from-cyan-400/10 via-slate-950/10 to-violet-400/10;
+    @apply border-teal-300/25 bg-gradient-to-br from-emerald-400/10 via-slate-950/10 to-orange-400/10;
   }
 
   /* Linha ativa: um pouco mais clara */
@@ -188,12 +196,12 @@
     animation: selectable-pulse 1.25s ease-in-out infinite;
   }
   .cell.selectable-s0 {
-    @apply border-cyan-300/60 bg-cyan-200/10;
-    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.18), 0 10px 24px rgba(0, 0, 0, 0.25);
+    @apply border-emerald-300/60 bg-emerald-200/10;
+    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.18), 0 10px 24px rgba(0, 0, 0, 0.25);
   }
   .cell.selectable-s1 {
-    @apply border-violet-300/60 bg-violet-200/10;
-    box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.18), 0 10px 24px rgba(0, 0, 0, 0.25);
+    @apply border-orange-300/60 bg-orange-200/10;
+    box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.18), 0 10px 24px rgba(0, 0, 0, 0.25);
   }
 
   @keyframes selectable-pulse {
@@ -224,6 +232,30 @@
   .small {
     @apply text-xs;
   }
+
+  /* Classes semânticas para jogadores (tema dinâmico) */
+  .text-slot-0 { @apply text-emerald-200; }
+  .text-slot-1 { @apply text-orange-200; }
+  .text-slot-0-strong { @apply text-emerald-300; }
+  .text-slot-1-strong { @apply text-orange-300; }
+  
+  .border-slot-0 { @apply border-emerald-500/30; }
+  .border-slot-1 { @apply border-orange-500/30; }
+  
+  .bg-slot-0 { @apply bg-emerald-400/50; }
+  .bg-slot-1 { @apply bg-orange-400/50; }
+
+  .bg-dot-0 { @apply bg-emerald-400 border-emerald-300/60; }
+  .bg-dot-1 { @apply bg-orange-400 border-orange-300/60; }
+
+  .shadow-slot-0 { box-shadow: 0 0 15px rgba(52,211,153,0.1); }
+  .shadow-slot-1 { box-shadow: 0 0 15px rgba(251,146,60,0.1); }
+
+  .bg-banner-0 { @apply bg-emerald-500/10 border border-emerald-500/20; }
+  .bg-banner-1 { @apply bg-orange-500/10 border border-orange-500/20; }
+  
+  .bg-panel { @apply bg-white/5 border border-white/10; }
+  .bg-panel-badge { @apply bg-black/20 border border-white/5; }
 
   /* Layouts responsivos (mobile-first) */
   .layout-2 {
@@ -262,7 +294,7 @@
 
   /* Efeito de explosão para a bolinha do jogador (quando cai em mina) */
   .dot-wrap {
-    @apply relative inline-flex h-3 w-3 items-center justify-center;
+    @apply relative inline-flex items-center justify-center;
   }
 
   .mine-hit .dot-core {
@@ -417,6 +449,9 @@
 .theme-light .cell {
   @apply border-black/10 bg-white/70 text-slate-800;
 }
+.theme-light .board-grid > .cell:nth-child(9n+1) {
+  border-right-color: rgba(0, 0, 0, 0.06);
+}
 .theme-light .cell.header {
   @apply bg-black/5 text-slate-600;
 }
@@ -424,25 +459,25 @@
   @apply bg-black/5;
 }
 .theme-light .cell.tried-a {
-  @apply border-cyan-600/35 bg-cyan-500/10;
+  @apply border-emerald-600/35 bg-emerald-500/10;
 }
 .theme-light .cell.tried-b {
-  @apply border-violet-600/35 bg-violet-500/10;
+  @apply border-orange-600/35 bg-orange-500/10;
 }
 .theme-light .cell.tried-both {
-  @apply border-emerald-700/15 bg-gradient-to-br from-cyan-500/10 via-white/10 to-violet-500/10;
+  @apply border-teal-700/15 bg-gradient-to-br from-emerald-500/10 via-white/10 to-orange-500/10;
 }
 .theme-light .cell.selectable {
   @apply border-amber-500/55 bg-amber-200/35;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22), 0 10px 20px rgba(0, 0, 0, 0.08);
 }
 .theme-light .cell.selectable-s0 {
-  @apply border-cyan-600/55 bg-cyan-200/35;
-  box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.18), 0 10px 20px rgba(0, 0, 0, 0.08);
+  @apply border-emerald-600/55 bg-emerald-200/35;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.18), 0 10px 20px rgba(0, 0, 0, 0.08);
 }
 .theme-light .cell.selectable-s1 {
-  @apply border-violet-600/55 bg-violet-200/35;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.16), 0 10px 20px rgba(0, 0, 0, 0.08);
+  @apply border-orange-600/55 bg-orange-200/35;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.16), 0 10px 20px rgba(0, 0, 0, 0.08);
 }
 .theme-light .tag {
   @apply border-black/10 bg-black/5 text-slate-700;
@@ -469,3 +504,27 @@
 .theme-light .mine-mark {
   color: rgba(15, 23, 42, 0.85);
 }
+
+/* Classes semânticas para jogadores no tema claro */
+.theme-light .text-slot-0 { @apply text-emerald-700; }
+.theme-light .text-slot-1 { @apply text-orange-700; }
+.theme-light .text-slot-0-strong { @apply text-emerald-700; }
+.theme-light .text-slot-1-strong { @apply text-orange-700; }
+
+.theme-light .border-slot-0 { @apply border-emerald-600/30; }
+.theme-light .border-slot-1 { @apply border-orange-600/30; }
+
+.theme-light .bg-slot-0 { @apply bg-emerald-500/50; }
+.theme-light .bg-slot-1 { @apply bg-orange-500/50; }
+
+.theme-light .bg-dot-0 { @apply bg-emerald-600 border-emerald-500/60; }
+.theme-light .bg-dot-1 { @apply bg-orange-600 border-orange-500/60; }
+
+.theme-light .shadow-slot-0 { box-shadow: 0 0 15px rgba(5,150,105,0.1); }
+.theme-light .shadow-slot-1 { box-shadow: 0 0 15px rgba(234,88,12,0.1); }
+
+.theme-light .bg-banner-0 { @apply bg-emerald-500/10 border-emerald-600/20; }
+.theme-light .bg-banner-1 { @apply bg-orange-500/10 border-orange-600/20; }
+
+.theme-light .bg-panel { @apply bg-white/70 border-black/10; }
+.theme-light .bg-panel-badge { @apply bg-black/5 border-black/5 text-slate-800; }

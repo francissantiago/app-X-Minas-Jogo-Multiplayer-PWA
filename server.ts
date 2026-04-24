@@ -4,10 +4,30 @@ import express from "express";
 import WebSocket, { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.PORT || 3000);
-const MINE_DAMAGE = Number(process.env.MINE_DAMAGE || 1);
-const ROWS = 8;
-const COLS = "ABCDEFGH";
-const MINES_PER_ROW = 3;
+const MAX_ROWS = 20;
+const ALL_COLS = "ABCDEFGH";
+const DEFAULT_ROWS = 8;
+const DEFAULT_MINES_PER_ROW = 3;
+const DEFAULT_MINE_DAMAGE = 1;
+
+type GameConfig = { rows: number; minesPerRow: number; mineDamage: number };
+
+function calcHealth(config: GameConfig): number {
+  // Permite sobreviver a ~60% das minas totais, com mínimo de 10
+  const totalMines = config.rows * config.minesPerRow;
+  return Math.max(10, Math.ceil(totalMines * config.mineDamage * 0.6));
+}
+
+function sanitizeConfig(raw: any): GameConfig {
+  const rows = Math.max(2, Math.min(MAX_ROWS, Number(raw?.rows) || DEFAULT_ROWS));
+  const minesPerRow = Math.max(1, Math.min(rows - 1, Number(raw?.minesPerRow) || DEFAULT_MINES_PER_ROW));
+  const mineDamage = Math.max(1, Math.min(5, Number(raw?.mineDamage) || DEFAULT_MINE_DAMAGE));
+  return { rows, minesPerRow, mineDamage };
+}
+
+function colsForConfig(_config: GameConfig): string[] {
+  return ALL_COLS.split(""); // Sempre 8 colunas A-H, independente do número de linhas
+}
 const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutos
 
 const app = express();
@@ -38,6 +58,7 @@ type TrapRow = { row: number; x: string; mines: string[] };
 
 type Room = {
   code: string;
+  config: GameConfig;
   players: Player[];
   phase: Phase;
   turnPlayerId: string | null;
@@ -103,12 +124,12 @@ function getOpponent(room: Room, playerId: string) {
   return room.players.find((p) => p.id !== playerId) || null;
 }
 
-function makeInitialPlayerState(): PlayerState {
+function makeInitialPlayerState(config: GameConfig): PlayerState {
   return {
-    points: 20,
+    points: calcHealth(config),
     currentRow: 1,
-    attemptedByRow: Array.from({ length: ROWS }, () => new Set<string>()),
-    mineHitsByRow: Array.from({ length: ROWS }, () => new Set<string>())
+    attemptedByRow: Array.from({ length: config.rows }, () => new Set<string>()),
+    mineHitsByRow: Array.from({ length: config.rows }, () => new Set<string>())
   };
 }
 
@@ -126,6 +147,7 @@ function publicState(room: Room, forPlayerId: string) {
   return {
     roomCode: room.code,
     phase: room.phase,
+    config: room.config,
     turnPlayerId: room.turnPlayerId,
     you: you
       ? {
@@ -155,26 +177,27 @@ function publicState(room: Room, forPlayerId: string) {
   };
 }
 
-function validateTrapMap(traps: unknown): string | null {
-  // traps: [{row:1, x:"C", mines:["A","B","D","E"]}, ...]
-  if (!Array.isArray(traps) || traps.length !== ROWS) return `Mapa inválido: esperado ${ROWS} linhas.`;
-  const cols = new Set(COLS.split(""));
+function validateTrapMap(traps: unknown, config: GameConfig): string | null {
+  const { rows, minesPerRow } = config;
+  const colsArr = colsForConfig(config);
+  if (!Array.isArray(traps) || traps.length !== rows) return `Mapa inválido: esperado ${rows} linhas.`;
+  const cols = new Set(colsArr);
   for (const r of traps as any[]) {
     if (!r || typeof r.row !== "number") return "Mapa inválido: linha sem número.";
-    if (r.row < 1 || r.row > ROWS) return `Mapa inválido: número de linha fora de 1..${ROWS}.`;
+    if (r.row < 1 || r.row > rows) return `Mapa inválido: número de linha fora de 1..${rows}.`;
     if (typeof r.x !== "string" || !cols.has(r.x)) return `Mapa inválido: X inválido na linha ${r.row}.`;
-    if (!Array.isArray(r.mines) || r.mines.length !== MINES_PER_ROW)
-      return `Mapa inválido: esperado ${MINES_PER_ROW} minas na linha ${r.row}.`;
+    if (!Array.isArray(r.mines) || r.mines.length !== minesPerRow)
+      return `Mapa inválido: esperado ${minesPerRow} minas na linha ${r.row}.`;
     const mineSet = new Set<string>(r.mines as string[]);
-    if (mineSet.size !== MINES_PER_ROW) return `Mapa inválido: minas repetidas na linha ${r.row}.`;
+    if (mineSet.size !== minesPerRow) return `Mapa inválido: minas repetidas na linha ${r.row}.`;
     for (const m of mineSet) {
       if (typeof m !== "string" || !cols.has(m)) return `Mapa inválido: mina inválida (${String(m)}) na linha ${r.row}.`;
     }
     if (mineSet.has(r.x)) return `Mapa inválido: X não pode coincidir com mina na linha ${r.row}.`;
   }
-  const rows = new Set((traps as any[]).map((t) => t.row));
-  if (rows.size !== ROWS) return "Mapa inválido: linhas repetidas.";
-  for (let i = 1; i <= ROWS; i++) if (!rows.has(i)) return `Mapa inválido: faltando linha ${i}.`;
+  const rowsSet = new Set((traps as any[]).map((t) => t.row));
+  if (rowsSet.size !== rows) return "Mapa inválido: linhas repetidas.";
+  for (let i = 1; i <= rows; i++) if (!rowsSet.has(i)) return `Mapa inválido: faltando linha ${i}.`;
   return null;
 }
 
@@ -197,7 +220,7 @@ wss.on("connection", (ws) => {
     lastActivity: Date.now()
   };
 
-  safeSend(ws, { type: "connected", mineDamage: MINE_DAMAGE });
+  safeSend(ws, { type: "connected", defaultConfig: { rows: DEFAULT_ROWS, minesPerRow: DEFAULT_MINES_PER_ROW, mineDamage: DEFAULT_MINE_DAMAGE } });
 
   ws.on("message", (raw) => {
     client.lastActivity = Date.now();
@@ -239,13 +262,15 @@ wss.on("connection", (ws) => {
         client.id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         client.roomCode = code;
 
+        const config = sanitizeConfig(msg.config);
         const room: Room = {
           code,
+          config,
           players: [{ id: client.id, name: client.name, ws, lastActivity: client.lastActivity }],
           phase: "waiting",
           turnPlayerId: null,
           winnerId: null,
-          playerState: { [client.id]: makeInitialPlayerState() },
+          playerState: { [client.id]: makeInitialPlayerState(config) },
           setupSubmittedBy: { [client.id]: false },
           trapsByTargetPlayerId: {}
         };
@@ -284,7 +309,7 @@ wss.on("connection", (ws) => {
         client.id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         client.roomCode = code;
         room.players.push({ id: client.id, name: client.name, ws, lastActivity: client.lastActivity });
-        room.playerState[client.id] = makeInitialPlayerState();
+        room.playerState[client.id] = makeInitialPlayerState(room.config);
         room.setupSubmittedBy[client.id] = false;
 
         room.phase = "setup";
@@ -304,7 +329,7 @@ wss.on("connection", (ws) => {
       if (msg.type === "setup_submit") {
         if (room.phase !== "setup") return safeSend(ws, { type: "error", message: "Fase inválida para setup." });
         const traps = msg.trapsForOpponent;
-        const err = validateTrapMap(traps);
+        const err = validateTrapMap(traps, room.config);
         if (err) return safeSend(ws, { type: "error", message: err });
         const opp = getOpponent(room, client.id);
         if (!opp) return safeSend(ws, { type: "error", message: "Aguardando oponente entrar." });
@@ -322,11 +347,12 @@ wss.on("connection", (ws) => {
         if (room.turnPlayerId !== client.id) return safeSend(ws, { type: "error", message: "Não é o seu turno." });
 
         const col = String(msg.col || "").toUpperCase();
-        if (!COLS.includes(col)) return safeSend(ws, { type: "error", message: `Coluna inválida (A-${COLS[COLS.length - 1]}).` });
+        const roomCols = colsForConfig(room.config);
+        if (!roomCols.includes(col)) return safeSend(ws, { type: "error", message: `Coluna inválida (A-${roomCols[roomCols.length - 1]}).` });
 
         const ps = room.playerState[client.id];
         const row = ps.currentRow;
-        if (row < 1 || row > ROWS) return safeSend(ws, { type: "error", message: "Linha atual inválida." });
+        if (row < 1 || row > room.config.rows) return safeSend(ws, { type: "error", message: "Linha atual inválida." });
         const attempted = ps.attemptedByRow[row - 1];
         if (attempted.has(col)) return safeSend(ws, { type: "error", message: "Você já tentou essa coluna nesta linha." });
         attempted.add(col);
@@ -344,16 +370,16 @@ wss.on("connection", (ws) => {
         if (col === rowTrap.x) {
           outcome = "x";
           ps.currentRow = row + 1;
-          if (ps.currentRow === ROWS + 1) {
+          if (ps.currentRow === room.config.rows + 1) {
             gameOver = true;
             winnerId = client.id;
             finishGame(room, winnerId);
           }
         } else if (mines.has(col)) {
           outcome = "mine";
-          pointsLost = MINE_DAMAGE;
+          pointsLost = room.config.mineDamage;
           ps.mineHitsByRow[row - 1].add(col);
-          ps.points = Math.max(0, ps.points - MINE_DAMAGE);
+          ps.points = Math.max(0, ps.points - room.config.mineDamage);
           if (ps.points <= 0) {
             gameOver = true;
             const opp = getOpponent(room, client.id);
@@ -391,7 +417,7 @@ wss.on("connection", (ws) => {
         room.winnerId = null;
         room.trapsByTargetPlayerId = {};
         for (const p of room.players) {
-          room.playerState[p.id] = makeInitialPlayerState();
+          room.playerState[p.id] = makeInitialPlayerState(room.config);
           room.setupSubmittedBy[p.id] = false;
         }
         for (const p of room.players) safeSend(p.ws, { type: "room_state", state: publicState(room, p.id) });
