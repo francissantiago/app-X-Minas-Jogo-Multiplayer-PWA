@@ -103,6 +103,7 @@ const appEl = document.getElementById("app") as HTMLElement;
 
 type Screen =
   | "menu"
+  | "offline_lobby"
   | "offline_setup"
   | "offline_play"
   | "offline_end"
@@ -768,33 +769,12 @@ function board10x10Combined(opts: {
 // Screens
 // ---------------------------
 function renderMenu() {
-  const nameInput = el("input", {
-    class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-emerald-500/30 focus:border-emerald-500/50",
-    placeholder: "JOGADOR 1",
-    value: appState.name,
-    onInput: (e: Event) => {
-      appState.name = (e.target as HTMLInputElement).value;
-      saveName(appState.name);
-      if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-        const name = (appState.name || "").trim() || "Jogador";
-        appState.ws.send(JSON.stringify({ type: "set_name", name }));
-      }
-    }
-  });
-
-  const name2Input = el("input", {
-    class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-orange-500/30 focus:border-orange-500/50",
-    placeholder: "JOGADOR 2",
-    value: appState.name2,
-    onInput: (e: Event) => {
-      appState.name2 = (e.target as HTMLInputElement).value;
-      saveName2(appState.name2);
-    }
-  });
-
   const offlineBtn = el("button", {
     class: "group relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl bg-panel p-6 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(52,211,153,0.3)]",
-    onClick: startOffline
+    onClick: () => {
+      appState.screen = "offline_lobby";
+      render();
+    }
   }, [
     el("div", { class: "text-4xl transition-transform duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_15px_rgba(52,211,153,0.8)]" }, ["🎮"]),
     el("div", { class: "flex flex-col items-center gap-1" }, [
@@ -818,42 +798,13 @@ function renderMenu() {
     ])
   ]);
 
-  const setupSection = el("div", { class: "mx-auto flex w-full max-w-lg flex-col gap-8 mt-4" }, [
+  const heroSection = el("div", { class: "mx-auto flex w-full max-w-lg flex-col gap-8 mt-8" }, [
     el("div", { class: "flex flex-col items-center space-y-2 text-center" }, [
       el("h2", { class: "bg-gradient-to-r from-emerald-500 via-cyan-500 to-orange-500 bg-clip-text text-4xl sm:text-5xl font-black uppercase tracking-tighter text-transparent drop-shadow-sm" }, ["Preparar Batalha"]),
-      el("p", { class: "text-sm font-bold uppercase tracking-widest opacity-50" }, ["Defina os nomes e escolha a arena"])
+      el("p", { class: "text-sm font-bold uppercase tracking-widest opacity-50" }, ["Escolha o modo de jogo"])
     ]),
 
-    el("div", { class: "grid gap-6 sm:grid-cols-2" }, [
-      el("div", { class: "relative flex flex-col gap-2" }, [
-        el("div", { class: "absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-emerald-500/30 bg-emerald-100 dark:bg-emerald-950/80 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 shadow-sm" }, ["Jogador 1"]),
-        nameInput
-      ]),
-      el("div", { class: "relative flex flex-col gap-2" }, [
-        el("div", { class: "absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-orange-500/30 bg-orange-100 dark:bg-orange-950/80 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400 shadow-sm" }, ["Jogador 2"]),
-        name2Input
-      ])
-    ]),
-
-    el("div", { class: "flex flex-col gap-3 p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/5" }, [
-      el("span", { class: "text-[10px] font-black uppercase tracking-widest opacity-70 text-center" }, ["Configuração da Partida"]),
-      el("div", { class: "grid gap-3 grid-cols-3" }, [
-        el("div", { class: "flex flex-col gap-1" }, [
-          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Linhas" }),
-          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow >= v) appState.pendingConfig.minesPerRow = v - 1; render(); } })
-        ]),
-        el("div", { class: "flex flex-col gap-1" }, [
-          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Minas/Linha" }),
-          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(appState.pendingConfig.rows - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(appState.pendingConfig.rows - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
-        ]),
-        el("div", { class: "flex flex-col gap-1" }, [
-          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
-          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "5", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(5, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
-        ])
-      ])
-    ]),
-
-    el("div", { class: "flex flex-col gap-4 sm:flex-row mt-2" }, [
+    el("div", { class: "flex flex-col gap-4 sm:flex-row mt-4" }, [
       offlineBtn,
       onlineBtn
     ])
@@ -882,10 +833,110 @@ function renderMenu() {
     ])
   ]);
 
-  return el("div", { class: "flex w-full flex-col gap-5 px-2 pb-10 fade-in" }, [
-    setupSection,
-    rulesSection
+  return el("div", { class: "flex w-full flex-col gap-6" }, [heroSection, rulesSection]);
+}
+
+function renderOfflineLobby() {
+  const nameInput = el("input", {
+    class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-emerald-500/30 focus:border-emerald-500/50",
+    placeholder: "JOGADOR 1",
+    value: appState.name,
+    onInput: (e: Event) => {
+      appState.name = (e.target as HTMLInputElement).value;
+      saveName(appState.name);
+    }
+  });
+
+  const name2Input = el("input", {
+    class: "input text-center text-lg h-14 font-black tracking-wider uppercase transition-all focus:ring-orange-500/30 focus:border-orange-500/50",
+    placeholder: "JOGADOR 2",
+    value: appState.name2,
+    onInput: (e: Event) => {
+      appState.name2 = (e.target as HTMLInputElement).value;
+      saveName2(appState.name2);
+    }
+  });
+
+  const startBtn = el("button", {
+    class: "flex items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 p-4 font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-400 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.3)] w-full h-full min-h-[56px]",
+    onClick: startOffline
+  }, ["Iniciar Partida"]);
+
+  const back = el(
+    "button",
+    {
+      class: "flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300 transition-all hover:bg-black/10 dark:hover:bg-white/10",
+      onClick: () => {
+        appState.screen = "menu";
+        setLog("Voltou ao menu.");
+      }
+    },
+    ["← Voltar"]
+  );
+
+  const headerControls = el("div", { class: "flex justify-between items-center mb-6" }, [
+    back,
+    el("div", { class: "flex items-center gap-2" }, [
+      el("span", { class: "px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400", text: "LOCAL" })
+    ])
   ]);
+
+  const nameSection = el("div", { class: "flex flex-col items-center gap-3 mt-6" }, [
+    el("span", { class: "text-xs font-black uppercase tracking-widest opacity-70" }, ["1. Identificação"]),
+    el("div", { class: "w-full max-w-sm" }, [
+      el("div", { class: "grid gap-3 sm:grid-cols-2" }, [
+        el("div", { class: "flex flex-col gap-1" }, [
+          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Jogador 1" }),
+          nameInput
+        ]),
+        el("div", { class: "flex flex-col gap-1" }, [
+          el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Jogador 2" }),
+          name2Input
+        ])
+      ])
+    ]),
+    el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-50 text-center" }, ["Os nomes serão persistidos para as próximas partidas."])
+  ]);
+
+  const configSection = el("div", { class: "flex flex-col items-center gap-3 mt-6 w-full max-w-sm mx-auto" }, [
+    el("span", { class: "text-xs font-black uppercase tracking-widest opacity-70" }, ["2. Configuração da Partida"]),
+    el("div", { class: "grid gap-3 grid-cols-3 w-full" }, [
+      el("div", { class: "flex flex-col gap-1" }, [
+        el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Linhas" }),
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "2", max: String(MAX_ROWS), value: String(appState.pendingConfig.rows), onInput: (e: Event) => { const v = Math.max(2, Math.min(MAX_ROWS, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.rows)); appState.pendingConfig.rows = v; if (appState.pendingConfig.minesPerRow >= v) appState.pendingConfig.minesPerRow = v - 1; render(); } })
+      ]),
+      el("div", { class: "flex flex-col gap-1" }, [
+        el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Minas/Linha" }),
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: String(appState.pendingConfig.rows - 1), value: String(appState.pendingConfig.minesPerRow), onInput: (e: Event) => { const v = Math.max(1, Math.min(appState.pendingConfig.rows - 1, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.minesPerRow)); appState.pendingConfig.minesPerRow = v; render(); } })
+      ]),
+      el("div", { class: "flex flex-col gap-1" }, [
+        el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "5", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(5, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
+      ])
+    ])
+  ]);
+
+  const actionSection = el("div", { class: "flex flex-col items-center gap-3 mt-8 w-full max-w-sm mx-auto" }, [
+    el("span", { class: "text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400" }, ["3. Iniciar"]),
+    el("div", { class: "w-full" }, [startBtn]),
+    el("span", { class: "text-[10px] font-bold uppercase tracking-widest opacity-50 text-center" }, ["Comece a partida quando estiver pronto."])
+  ]);
+
+  const mainCard = el("div", { class: "flex flex-col gap-0 rounded-2xl bg-panel border-black/10 dark:border-white/10 overflow-hidden shadow-2xl p-4 sm:p-8 w-full mx-auto animate-in fade-in zoom-in-95 duration-300" }, [
+    headerControls,
+    el("div", { class: "flex flex-col items-center text-center space-y-2 mb-4" }, [
+      el("h2", { class: "bg-gradient-to-r from-emerald-500 to-cyan-500 bg-clip-text text-3xl sm:text-4xl font-black uppercase tracking-tighter text-transparent drop-shadow-sm" }, ["Lobby Local"]),
+      el("p", { class: "text-[10px] font-bold uppercase tracking-widest opacity-50" }, ["Jogue no mesmo dispositivo"])
+    ]),
+    el("div", { class: "h-px w-full bg-black/5 dark:bg-white/5 my-4" }),
+    nameSection,
+    configSection,
+    actionSection,
+    el("div", { class: "h-px w-full bg-black/5 dark:bg-white/5 my-8" }),
+    el("div", { class: "text-[10px] font-bold uppercase tracking-widest opacity-40 text-center" }, [`Config: ${appState.pendingConfig.rows} linhas | ${appState.pendingConfig.minesPerRow} minas/linha | -${appState.pendingConfig.mineDamage} dano/mina`])
+  ]);
+
+  return el("div", { class: "w-full max-w-3xl mx-auto" }, [mainCard]);
 }
 
 function startOffline() {
@@ -1602,6 +1653,9 @@ function render() {
   switch (appState.screen) {
     case "menu":
       screenEl = renderMenu();
+      break;
+    case "offline_lobby":
+      screenEl = renderOfflineLobby();
       break;
     case "offline_setup":
       screenEl = renderOfflineSetup();
