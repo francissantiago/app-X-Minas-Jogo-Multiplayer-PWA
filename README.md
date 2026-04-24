@@ -107,11 +107,11 @@ O frontend pode ser hospedado no GitHub Pages:
 
 No lobby (local ou online), você pode configurar:
 
-| Opção       | Padrão | Mínimo | Máximo   |
-| ----------- | ------ | ------ | -------- |
-| Linhas      | 8      | 2      | 20       |
-| Minas/Linha | 3      | 1      | Linhas-1 |
-| Dano/Mina   | 1      | 1      | 5        |
+| Opção       | Padrão | Mínimo | Máximo         |
+| ----------- | ------ | ------ | -------------- |
+| Linhas      | 8      | 2      | 20             |
+| Minas/Linha | 3      | 1      | Colunas-1 (7)  |
+| Dano/Mina   | 1      | 1      | 5              |
 
 **Cálculo de HP**: `max(10, ceil(linhas × minas × dano × 0.6))`
 
