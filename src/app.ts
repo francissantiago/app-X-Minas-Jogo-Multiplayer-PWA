@@ -15,8 +15,8 @@ type GameConfig = { rows: number; minesPerRow: number; mineDamage: number };
 
 const DEFAULT_CONFIG: GameConfig = { rows: 8, minesPerRow: 3, mineDamage: 1 };
 
-function colsForConfig(config: GameConfig): string[] {
-  return ALL_COLS.slice(0, config.rows);
+function colsForConfig(_config: GameConfig): string[] {
+  return [...ALL_COLS]; // Sempre 8 colunas A-H, independente do número de linhas
 }
 
 // ---------------------------
@@ -831,7 +831,7 @@ function renderMenu() {
         ]),
         el("div", { class: "flex flex-col gap-1" }, [
           el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
-          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "20", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(20, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
+          el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "5", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(5, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
         ])
       ])
     ]),
@@ -1271,7 +1271,7 @@ function renderOnlineLobby() {
       ]),
       el("div", { class: "flex flex-col gap-1" }, [
         el("label", { class: "text-[9px] font-bold uppercase tracking-widest opacity-60 text-center", text: "Dano/Mina" }),
-        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "20", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(20, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
+        el("input", { class: "input text-center h-10 font-bold", type: "number", min: "1", max: "5", value: String(appState.pendingConfig.mineDamage), onInput: (e: Event) => { const v = Math.max(1, Math.min(5, Number((e.target as HTMLInputElement).value) || DEFAULT_CONFIG.mineDamage)); appState.pendingConfig.mineDamage = v; render(); } })
       ])
     ])
   ]);

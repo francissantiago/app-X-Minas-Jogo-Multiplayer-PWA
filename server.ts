@@ -5,7 +5,7 @@ import WebSocket, { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.PORT || 3000);
 const MAX_ROWS = 20;
-const ALL_COLS = "ABCDEFGHIJKLMNOPQRST";
+const ALL_COLS = "ABCDEFGH";
 const DEFAULT_ROWS = 8;
 const DEFAULT_MINES_PER_ROW = 3;
 const DEFAULT_MINE_DAMAGE = 1;
@@ -21,12 +21,12 @@ function calcHealth(config: GameConfig): number {
 function sanitizeConfig(raw: any): GameConfig {
   const rows = Math.max(2, Math.min(MAX_ROWS, Number(raw?.rows) || DEFAULT_ROWS));
   const minesPerRow = Math.max(1, Math.min(rows - 1, Number(raw?.minesPerRow) || DEFAULT_MINES_PER_ROW));
-  const mineDamage = Math.max(1, Math.min(20, Number(raw?.mineDamage) || DEFAULT_MINE_DAMAGE));
+  const mineDamage = Math.max(1, Math.min(5, Number(raw?.mineDamage) || DEFAULT_MINE_DAMAGE));
   return { rows, minesPerRow, mineDamage };
 }
 
-function colsForConfig(config: GameConfig): string {
-  return ALL_COLS.slice(0, config.rows);
+function colsForConfig(_config: GameConfig): string[] {
+  return ALL_COLS.split(""); // Sempre 8 colunas A-H, independente do número de linhas
 }
 const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutos
 
@@ -179,9 +179,9 @@ function publicState(room: Room, forPlayerId: string) {
 
 function validateTrapMap(traps: unknown, config: GameConfig): string | null {
   const { rows, minesPerRow } = config;
-  const colsStr = colsForConfig(config);
+  const colsArr = colsForConfig(config);
   if (!Array.isArray(traps) || traps.length !== rows) return `Mapa inválido: esperado ${rows} linhas.`;
-  const cols = new Set(colsStr.split(""));
+  const cols = new Set(colsArr);
   for (const r of traps as any[]) {
     if (!r || typeof r.row !== "number") return "Mapa inválido: linha sem número.";
     if (r.row < 1 || r.row > rows) return `Mapa inválido: número de linha fora de 1..${rows}.`;
