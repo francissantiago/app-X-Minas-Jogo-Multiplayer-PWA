@@ -829,7 +829,7 @@ function renderMenu() {
     el("div", { class: "grid gap-5 md:grid-cols-3" }, [
       ruleCard("💣", "Plante Armadilhas", `Oculte minas e 1 atalho (X) em cada linha inimiga.`, "border-orange-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.4)]"),
       ruleCard("🏃", "Ache o Atalho", "Adivinhe onde está o X para descer de linha sem tomar dano.", "border-cyan-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(34,211,238,0.4)]"),
-      ruleCard("🏆", "Sobreviva", "Chegue no topo ou faça o adversário perder seus pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
+      ruleCard("🏆", "Sobreviva", "Chegue no fim ou faça o adversário perder seus pontos de vida!", "border-emerald-500/50", "hover:shadow-[0_10px_30px_-10px_rgba(52,211,153,0.4)]")
     ])
   ]);
 
